@@ -584,11 +584,12 @@ function toggleOuthouseExcelCard() {
   pdfSubmitCard.style.display = useExcel ? 'none' : 'block';
   submitBtn.disabled = useExcel;
 
-  // OUT-HOUSE + PDF মোডে: যেহেতু PDF থেকেই Customer/Buyer/PO সব অটো নেওয়া
-  // যায়, তাই আপলোড বক্সটা আগে দেখানো হচ্ছে, তারপর Order তথ্য (auto-fill
-  // হয়ে যাবে)। বাকি সব মোডে (Excel / IN-HOUSE) আগের মতোই Order তথ্য আগে।
+  // PDF মোডে (IN-HOUSE বা OUT-HOUSE, দুটোতেই): যেহেতু PDF থেকেই Customer/
+  // Buyer/PO সব অটো নেওয়া যায়, তাই আপলোড বক্সটা আগে দেখানো হচ্ছে, তারপর
+  // Order তথ্য (auto-fill হয়ে যাবে)। শুধু Excel মোডে (OUT-HOUSE-এ, ম্যানুয়াল
+  // এন্ট্রি লাগে বলে) Order তথ্য আগে থাকবে।
   const orderInfoCard = document.getElementById('orderInfoCard');
-  const pdfOnlyMode = isOuthouse && !useExcel;
+  const pdfOnlyMode = !useExcel;
   if (pdfOnlyMode) {
     form.appendChild(pdfUploadCard);
     form.appendChild(orderInfoCard);

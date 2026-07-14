@@ -25,24 +25,57 @@ _TITLE_RE = re.compile(
 # Item Description-এর মধ্যে থাকা মেজারমেন্ট বের করার দুই ধরনের প্যাটার্ন:
 #   (ক) "L55 X W35 X H16 CM"   — L/W/H লেটার-প্রিফিক্সড (Barnali-স্টাইল)
 #   (খ) "300X200X160 MM"       — শুধু সংখ্যা×সংখ্যা×সংখ্যা, ইউনিট শেষে (Modele-স্টাইল)
+# একাধিক সেপারেটর ('X','x','×','*') এবং কমা-ডেসিমেল (ইউরোপীয় স্টাইল, '35,5')
+# সহ্য করা হচ্ছে, যাতে ভবিষ্যতের নতুন ভেন্ডরের সামান্য ভিন্ন ফরম্যাটেও কাজ করে।
 _MEASUREMENT_RE_LETTERED = re.compile(
-    r'L\s*[-]?\s*(\d+(?:\.\d+)?)\s*X\s*W\s*[-]?\s*(\d+(?:\.\d+)?)'
-    r'(?:\s*X\s*H\s*[-]?\s*(\d+(?:\.\d+)?))?\s*(CM|MM)?',
+    r'L\s*[-:]?\s*(\d+(?:[.,]\d+)?)\s*[×xX*]\s*W\s*[-:]?\s*(\d+(?:[.,]\d+)?)'
+    r'(?:\s*[×xX*]\s*H\s*[-:]?\s*(\d+(?:[.,]\d+)?))?\s*(CM|MM|INCH(?:ES)?|IN)?',
     re.I,
 )
 _MEASUREMENT_RE_PLAIN = re.compile(
-    r'(\d+(?:\.\d+)?)\s*[Xx]\s*(\d+(?:\.\d+)?)\s*[Xx]\s*(\d+(?:\.\d+)?)\s*(CM|MM)?',
+    r'(\d+(?:[.,]\d+)?)\s*[×xX*]\s*(\d+(?:[.,]\d+)?)(?:\s*[×xX*]\s*(\d+(?:[.,]\d+)?))?\s*(CM|MM|INCH(?:ES)?|IN)?',
     re.I,
 )
+
+
+def _mm_to_cm(value):
+    """MM -> CM (÷10), অহেতুক ট্রেইলিং জিরো/দশমিক ছাড়াই।"""
+    if not value:
+        return value
+    try:
+        num = float(str(value).replace(',', '.')) / 10
+    except ValueError:
+        return value
+    if num == int(num):
+        return str(int(num))
+    return f"{num:.2f}".rstrip('0').rstrip('.')
+
+
+def _normalize_measurement(length, width, height, unit):
+    """টেমপ্লেটে সবসময় CM রাখতে হবে (ইউজারের স্পষ্ট নির্দেশ) — তাই MM পাওয়া
+    গেলে অটোমেটিক CM-এ কনভার্ট করা হচ্ছে (÷10)। Inch পাওয়া গেলে Inch-ই
+    থাকবে (কনভার্ট হবে না) — সেটাও ইউজারের নির্দেশ অনুযায়ী।"""
+    unit = (unit or 'CM').upper()
+    if unit == 'MM':
+        return _mm_to_cm(length), _mm_to_cm(width), _mm_to_cm(height), 'CM'
+    if unit.startswith('IN'):
+        return length, width, height, 'Inch'
+    # কমা-ডেসিমেল থাকলে ডট-এ বদলে দেওয়া হচ্ছে
+    return (
+        str(length).replace(',', '.') if length else length,
+        str(width).replace(',', '.') if width else width,
+        str(height).replace(',', '.') if height else height,
+        'CM',
+    )
 
 
 def _match_measurement(text):
     m = _MEASUREMENT_RE_LETTERED.search(text)
     if m:
-        return m.group(1), m.group(2), m.group(3) or '', (m.group(4) or 'CM').upper()
+        return _normalize_measurement(m.group(1), m.group(2), m.group(3) or '', m.group(4))
     m = _MEASUREMENT_RE_PLAIN.search(text)
     if m:
-        return m.group(1), m.group(2), m.group(3) or '', (m.group(4) or 'CM').upper()
+        return _normalize_measurement(m.group(1), m.group(2), m.group(3) or '', m.group(4))
     return None
 
 
@@ -55,6 +88,21 @@ def _parse_title(text):
         'style_no': clean(m.group(2)),
         'po_no': clean(m.group(3)),
     }
+
+
+def _split_item_group_glitch(raw_group_text):
+    """মাঝেমধ্যে pdfplumber Item Group সেলের সাথে পরবর্তী কয়েকটা রো-র Item
+    Description-এর হারানো leading digit ভুলবশত জুড়ে দেয় (যেমন
+    '3\\nCarton 3\\n3' — আসল লেবেল শুধু 'Carton', আর '3','3','3' তিনটা
+    আলাদা রো-র মেজারমেন্টের হারানো প্রথম অঙ্ক)। এই ফাংশন লেবেল আর সেই
+    স্ট্রে ডিজিট-টোকেনগুলো (ক্রম ঠিক রেখে) আলাদা করে দেয়।
+
+    Returns (label, [stray_digit_tokens])।"""
+    tokens = re.split(r'[\s\n]+', raw_group_text.strip())
+    digits = [t for t in tokens if t.isdigit()]
+    label_tokens = [t for t in tokens if not t.isdigit()]
+    label = ' '.join(label_tokens).strip()
+    return label, digits
 
 
 def extract_trims_booking_line_items(pdf):
@@ -81,6 +129,11 @@ def extract_trims_booking_line_items(pdf):
     line_items = []
     current_block = None
     current_item_group = ''
+    # কিছু পাতায় pdfplumber Item Group সেলের সাথে পরের কয়েকটা রো-র Item
+    # Description-এর হারানো প্রথম অঙ্ক ভুলবশত জুড়ে দেয় (নিচে
+    # _split_item_group_glitch দেখুন) — এই queue-তে সেই হারানো অঙ্কগুলো
+    # ক্রমানুসারে জমা থাকে, প্রতিটা রো প্রসেস করার সময় একটা করে ব্যবহার হয়।
+    pending_digit_prefixes = []
 
     for page in pdf.pages:
         for t in page.extract_tables():
@@ -93,6 +146,7 @@ def extract_trims_booking_line_items(pdf):
                 if parsed_title:
                     current_block = parsed_title
                     current_item_group = ''
+                    pending_digit_prefixes = []
                     continue
 
                 if first_cell == 'Sl' or first_cell.startswith('Sl '):
@@ -111,17 +165,32 @@ def extract_trims_booking_line_items(pdf):
                 # রো-তে থাকে, বাকিগুলোয় ফাঁকা — ফরওয়ার্ড-ফিল করা হচ্ছে
                 row_item_group = clean(row[1]) if len(row) > 1 else ''
                 if row_item_group:
-                    current_item_group = row_item_group
+                    label, stray_digits = _split_item_group_glitch(row_item_group)
+                    if label:
+                        current_item_group = label
+                    if stray_digits:
+                        pending_digit_prefixes = stray_digits
                 if not current_item_group:
                     continue
 
+                prefix_digit = pending_digit_prefixes.pop(0) if pending_digit_prefixes else ''
+
+                cell_texts = [str(c) for c in row if c is not None]
                 measurement = None
-                for c in row:
-                    if c is None:
-                        continue
-                    measurement = _match_measurement(str(c))
-                    if measurement:
-                        break
+                # গ্লিচ-প্রবণ ব্লকে (prefix_digit পাওয়া গেলে) prefix জুড়ে আগে
+                # চেষ্টা করা হয়, কারণ prefix ছাড়া মেলানো গেলেও সেটা ভুল হতে
+                # পারে (যেমন '00x200x160mm' প্রিফিক্স ছাড়াই ভুলভাবে মিলে যায়,
+                # ঠিক মান পেতে prefix লাগবেই)
+                if prefix_digit:
+                    for text in cell_texts:
+                        measurement = _match_measurement(prefix_digit + text)
+                        if measurement:
+                            break
+                if not measurement:
+                    for text in cell_texts:
+                        measurement = _match_measurement(text)
+                        if measurement:
+                            break
                 if not measurement:
                     continue  # ডাটা রো না (সম্ভবত কোনো সামারি/অন্য লাইন)
 
@@ -166,7 +235,7 @@ def extract_trims_booking_line_items(pdf):
                     'color': '',
                     'size': '',
                     'delivery_date': '',
-                    'measurement_unit': unit.title(),
+                    'measurement_unit': unit,
                     'delivery_place_pdf': '',
                     'delivery_address_pdf': '',
                 })

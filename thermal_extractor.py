@@ -50,9 +50,16 @@ _SIZE_PREFIX_RE = re.compile(r'^[A-Za-z]{1,5}\s*[:=]\s*', re.I)
 def _clean_size_label(raw):
     """সাইজ লেবেল থেকে 'GS=' জাতীয় প্রিফিক্স বাদ দেয় এবং ফাঁকা হলে 'N/A' রিটার্ন
     করে। দুইবার (extractor-এ আর builder-এ কল হওয়ার সময়) প্রয়োগ করা নিরাপদ —
-    ইতিমধ্যে পরিষ্কার থাকা লেবেলের ক্ষেত্রে এটা কোনো পরিবর্তন করে না।"""
+    ইতিমধ্যে পরিষ্কার থাকা লেবেলের ক্ষেত্রে এটা কোনো পরিবর্তন করে না।
+
+    বড় বুকিং-এ PDF-এর সাইজ-হেডার সেল মাঝপথে লাইন-ব্রেক করে ভেঙে যায়
+    (যেমন 'GS=3-\\n4Y' বা 'GS=2\\nXL') — clean() সেই ব্রেককে স্পেসে বদলে দেয়,
+    ফলে '3- 4Y' বা '2 XL'-এর মতো ভুল ভ্যালু তৈরি হয়। সাইজ লেবেলে বাস্তবে কখনো
+    ইচ্ছাকৃত স্পেস থাকে না, তাই প্রিফিক্স বাদ দেওয়ার পর ভেতরের সব স্পেসও
+    মুছে দেওয়া হচ্ছে, যাতে '3-4Y' / '2XL' ঠিকভাবে ফিরে আসে।"""
     s = clean(raw)
     s = _SIZE_PREFIX_RE.sub('', s).strip()
+    s = re.sub(r'\s+', '', s)
     return s if s else 'N/A'
 
 
@@ -91,6 +98,17 @@ def _canonical_field_names(raw_names):
 _SUMMARY_ROW_MARKERS = ('pcs wise total', 'pcs wise total qty', 'total', 'total value')
 
 
+def _looks_like_size_continuation_header(row):
+    """বড় বুকিং-এ সাইজ কলাম সংখ্যা এত বেশি হয়ে যায় যে এক পাতার টেবিলে আর ধরে না —
+    তখন PDF বাকি সাইজ কলামগুলোকে (+ শেষে একটা 'Total' কলাম) পরের পাতায় সম্পূর্ণ
+    আলাদা একটা টেবিল হিসেবে ফেলে দেয়, যেখানে EWO No/Style No/PO No ইত্যাদি কোনো
+    ফিল্ড-হেডার থাকে না — খালি সাইজ লেবেল আর 'Total'। এটাই মূল ফিল্ড-হেডার রো থেকে
+    আলাদা করে চেনার নির্ভরযোগ্য সিগন্যাল: শেষ কলামের নাম হুবহু 'Total'।"""
+    if not row or len(row) < 2:
+        return False
+    return clean(row[-1]).lower() == 'total'
+
+
 def extract_detail_rows_thermal(pdf):
     """Thermal PO-এর 'Purchase Order Details' টেবিল বের করে আনে। এখন পর্যন্ত
     দেখা গেছে দুই ধরনের ফরম্যাট আছে:
@@ -115,6 +133,18 @@ def extract_detail_rows_thermal(pdf):
     তাই একটা প্রায়োরিটি-চেইন দিয়ে বাছাই করা হয়, যেটাই ওই ফরম্যাটে বাস্তবে
     উপস্থিত ও অর্থপূর্ণ, সেটাই ব্যবহার হবে।
 
+    বড় বুকিং-এ সাইজ কলাম সংখ্যা বেশি হয়ে গেলে (যেমন 3-4Y থেকে 5XL পর্যন্ত ১৩টা
+    সাইজ) PDF সবগুলো এক টেবিলে না রেখে বাকিটুকু (+ শেষে একটা 'Total' কলাম)
+    পরের পাতায় সম্পূর্ণ আলাদা একটা 'overflow' টেবিলে ফেলে দেয় — সেখানে
+    EWO No/Style No/PO No ইত্যাদি কোনো ফিল্ড রিপিট হয় না, খালি অতিরিক্ত সাইজ
+    লেবেল আর তাদের Qty। যেহেতু জোড়া লাগানোর মতো কোনো key (EWO/Style) নেই,
+    তাই ধরে নেওয়া হচ্ছে এই overflow টেবিলের ডাটা-রো-গুলো ঠিক আগের wide
+    টেবিলের লাইন-আইটেম রো-গুলোর সাথে একই ক্রমে (row-position অনুযায়ী) মেলে —
+    তাই wide-format লাইন-আইটেমগুলোকে সাথে সাথে মেল্ট না করে আগে
+    ``primary_rows``-এ (meta + sizes dict) জমা রাখা হয়, যাতে পরের পাতায়
+    overflow টেবিল পাওয়া গেলে সেই dict-এ নতুন সাইজ কলাম যোগ করা যায়। সব পাতা
+    প্রসেস হওয়ার পর একবারে মেল্ট করা হয়।
+
     Returns (line_items_df, raw_wide_df).
     """
     field_names = None
@@ -123,6 +153,7 @@ def extract_detail_rows_thermal(pdf):
     is_wide = False
     raw_wide_rows = []
     melted = []
+    primary_rows = []  # wide-format-এর জন্য: [{'meta': {...}, 'sizes': {label: raw_str}}]
     last_ewo, last_style = '', ''
 
     def process_data_row(row):
@@ -149,15 +180,11 @@ def extract_detail_rows_thermal(pdf):
 
         if is_wide and size_labels:
             qty_cells = row[split_idx:split_idx + len(size_labels)]
-            raw_wide_rows.append({**meta, **{
-                (size_labels[i] or f'Size{i+1}'): clean(qty_cells[i]) if i < len(qty_cells) else ''
+            sizes = {
+                (size_labels[i] or f'Size{i+1}'): (clean(qty_cells[i]) if i < len(qty_cells) else '')
                 for i in range(len(size_labels))
-            }})
-            for i, size_label in enumerate(size_labels):
-                qv = _to_float(qty_cells[i]) if i < len(qty_cells) else None
-                if qv is None:
-                    continue
-                melted.append({**meta, 'Size': _clean_size_label(size_label), 'Qty': qv})
+            }
+            primary_rows.append({'meta': meta, 'sizes': sizes})
         else:
             qty = _to_float(meta.get('PO QTY', ''))
             raw_wide_rows.append(dict(meta))
@@ -201,9 +228,36 @@ def extract_detail_rows_thermal(pdf):
                     field_names = _canonical_field_names([clean(v) for v in row0])
                     for r in rows[1:]:
                         process_data_row(r)
+            elif is_wide and _looks_like_size_continuation_header(rows[0]):
+                # সাইজ-ওভারফ্লো continuation টেবিল — শেষ কলাম বাদে বাকি সবগুলো
+                # নতুন সাইজ লেবেল। row-position অনুযায়ী আগের primary_rows-এর
+                # সাথে মিলিয়ে সেই dict-এ নতুন সাইজ যোগ করা হচ্ছে। primary_rows-এর
+                # চেয়ে বেশি রো থাকলে (থাকবেই — শেষ রো-টা এই টেবিলের নিজস্ব
+                # Pcs-wise-Total/Grand-Total রো, কোনো লাইন-আইটেম না), সেই বাড়তি
+                # রো(গুলো) বাদ দেওয়া হচ্ছে।
+                extra_raw = [clean(v) for v in rows[0][:-1]]
+                extra_labels = [_clean_size_label(s) for s in extra_raw]
+                data_rows = rows[1:]
+                n_primary = len(primary_rows)
+                for ridx in range(min(n_primary, len(data_rows))):
+                    r = data_rows[ridx]
+                    for ci, label in enumerate(extra_labels):
+                        val = clean(r[ci]) if ci < len(r) else ''
+                        primary_rows[ridx]['sizes'][label] = val
+                size_labels.extend(extra_labels)
             else:
                 for r in rows:
                     process_data_row(r)
+
+    if is_wide:
+        for pr in primary_rows:
+            meta, sizes = pr['meta'], pr['sizes']
+            raw_wide_rows.append({**meta, **sizes})
+            for size_label, val in sizes.items():
+                qv = _to_float(val)
+                if qv is None:
+                    continue
+                melted.append({**meta, 'Size': _clean_size_label(size_label), 'Qty': qv})
 
     if field_names is None:
         raise ValueError("এই PDF-এ পরিচিত Thermal 'Purchase Order Details' টেবিল ফরম্যাট পাওয়া যায়নি।")
@@ -214,33 +268,52 @@ def extract_detail_rows_thermal(pdf):
 
 
 def _rate_lookup(summary_df):
-    """summary_df (page0-এর রেট-সামারি টেবিল) থেকে (কোড, রেফারেন্স) -> Rate
-    ম্যাপ বানায়। summary-তে যদি একটাই রো থাকে (এখন পর্যন্ত দেখা সব PO-তেই তাই),
-    সব লাইন-আইটেমের জন্য সেই একটা Rate-ই সরাসরি ব্যবহার করা হয় — এটাই প্রধান পথ।
-    একাধিক রো থাকলে প্রথম দুই কলামের মান দিয়ে (নাম যা-ই হোক) ম্যাচ করার চেষ্টা হয়।"""
+    """summary_df (page0-এর রেট-সামারি টেবিল) থেকে rate বের করার লজিক।
+
+    বেশিরভাগ buyer-এর ক্ষেত্রে সামারি টেবিলে একটাই রো থাকে, কিন্তু কখনো কখনো
+    (যেমন একই Sticker Type/Reference-এর জন্য শুধু ভিন্ন color/country/shipment
+    আলাদা রো হিসেবে) একাধিক রো থাকে যেখানে Rate আসলে প্রতিটাতেই একই। তাই আগে
+    চেক করা হচ্ছে: সব রো-তে Rate ভ্যালু এক কিনা — হলে row-count/column-matching
+    ছাড়াই সরাসরি সেই একটা Rate-ই সবার জন্য ব্যবহার হবে।
+
+    Rate সত্যিই আলাদা আলাদা রো-তে ভিন্ন হলে তখনই matching লাগবে — সেক্ষেত্রে
+    সামারি টেবিলের কলাম-নামগুলোকে field_names-এর মতোই canonical করে
+    (THERMAL_FIELD_MAP দিয়ে) মেলানো হয়, যাতে 'Sticker Reference' vs
+    'Code / Reference'-এর মতো নাম-অমিল সঠিক ম্যাচ পেতে বাধা না দেয়।
+
+    Returns (lookup_dict, single_rate_or_None, canonical_key_fields).
+    """
     if summary_df is None or summary_df.empty:
-        return {}, None
-    if len(summary_df) == 1:
-        return {}, summary_df.iloc[0].get('Rate', '')
+        return {}, None, []
+
+    rate_col = next((c for c in summary_df.columns if _norm(c) == _norm('Rate')), None)
+    if rate_col is None:
+        return {}, None, []
+
+    all_rates = [clean(v) for v in summary_df[rate_col].tolist()]
+    non_blank_rates = [r for r in all_rates if r]
+    if len(set(non_blank_rates)) <= 1:
+        return {}, (non_blank_rates[0] if non_blank_rates else ''), []
+
+    key_cols = [c for c in summary_df.columns if c != rate_col and _norm(c) != _norm('Total Value')]
+    canon_key_cols = _canonical_field_names(key_cols)
     lookup = {}
-    cols = list(summary_df.columns)
     for _, r in summary_df.iterrows():
-        key = tuple(clean(r.get(c, '')) for c in cols[:2])
-        lookup[key] = r.get('Rate', '')
-    return lookup, None
+        key = tuple(clean(r.get(c, '')) for c in key_cols)
+        lookup[key] = clean(r.get(rate_col, ''))
+    return lookup, None, canon_key_cols
 
 
 def to_canonical_thermal(df, summary_df=None):
     """মেল্ট/ফ্ল্যাট করা DataFrame-কে canonical line-item স্কিমায় রূপান্তর করে,
     যেটা thermal_builder.py ব্যবহার করবে।"""
-    rate_lookup, single_rate = _rate_lookup(summary_df)
-    summary_cols = list(summary_df.columns)[:2] if summary_df is not None and not summary_df.empty else []
+    rate_lookup, single_rate, key_fields = _rate_lookup(summary_df)
     line_items = []
     for _, r in df.iterrows():
         if single_rate is not None:
             rate = single_rate
         else:
-            key = tuple(clean(r.get(c, '')) for c in summary_cols) if summary_cols else ()
+            key = tuple(clean(r.get(f, '')) for f in key_fields) if key_fields else ()
             rate = rate_lookup.get(key, '')
         line_items.append({
             'ewo_no': r.get('EWO No', ''),
