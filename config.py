@@ -26,6 +26,7 @@ CUSTOMERS = {
         "Barnali Textile and Printing Industries (Pvt) Ltd.",
         "Barnali Collections Limited",
         "Modele de Capital Ind Ltd.",
+        "Norp Knit Industries Ltd.",
     ],
 }
 
@@ -44,6 +45,7 @@ BUYERS = [
     "Hultafors Group AB",
     "Primark",
     "Aditya Birla",
+    "Macy",
     "Carhartt",
     "Varner",
     "Express",
@@ -86,6 +88,7 @@ CARTON_VERIFIED_BUYERS = [
     "Hultafors Group AB",
     "Primark",
     "Aditya Birla",
+    "Macy",
 ]
 
 BUYER_ALIASES = {
@@ -177,6 +180,26 @@ DELIVERY_ADDRESSES = {
         'Modele de Capital Ltd. (Dying Section)',
         'Goumati Knit Wears Ltd.',
     ],
+    'Norp Knit Industries Ltd.': [
+        'Norp Knit (Unit-2)',
+        'Norp Knit (NU)',
+        'ATS Apparels Ltd.',
+        'Karim Textile Ltd.',
+        'A.K.M Knitwear Ltd.',
+        'Stylo Fashion Garments Ltd.',
+        'Noman Fashion Fabrics Ltd.',
+        'Surma Garments Ltd.',
+        'Mallick Fabrics Ltd.',
+        'BANDO ECO APPARELS LTD.',
+        'Alpha Clothing Ltd',
+        'Prudent Fashions Ltd.',
+        'Sepal Garments Ltd',
+        'ZABER & ZUBAIR FABRICS LIMITED',
+        'TNZ Apparels Ltd',
+        'SCARLET KNITWEARS LTD',
+        'Norp Knit Ind. Unit-1',
+        'Norp Knit Industries Ltd.',
+    ],
     'Impress Fashion Limited': ['Impress Fashion Ltd.'],
     'Dazzling Dresses Ltd.': ['Dazzling Dresses Ltd.', 'Epyllion Style Limited'],
     'Eurotex Knitwear Ltd.': ['Bally Cotton Knitdress Ltd.', 'Consist Apparel Ltd'],
@@ -219,4 +242,3 @@ CUSTOM_EXTRA_HOLIDAYS_2026 = [
 # এখানে শুধু এই একটা লাইন বদলালেই সব জায়গায় বদলে যাবে।
 # ---------------------------------------------------------------------------
 DELIVERY_DATE_FORMAT = "%d-%b-%Y"
-

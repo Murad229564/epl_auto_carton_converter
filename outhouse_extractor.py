@@ -6,6 +6,8 @@ import tempfile
 from datetime import datetime
 import pandas as pd
 
+from norp_extractor import read_norp_style_excel
+
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
 # একাধিক ফাইল একসাথে আপলোড করা হলে, প্রতিটা থেকে ঠিক একই নিয়মে ডাটা নিয়ে
@@ -333,12 +335,28 @@ def combine_booking_excels(files, item_name_override='Master Carton', manual_ply
     সমস্যা হলে সেটা স্কিপ হয়ে যায় (বাকিগুলো প্রসেস চলতে থাকে), আর সেই
     এরর মেসেজ আলাদাভাবে রিটার্ন হয় যাতে ইউজারকে জানানো যায়।
 
+    একাধিক এক্সেল ফরম্যাট অটো-ডিটেক্ট করা হয়: প্রথমে Norp Knit-স্টাইল
+    (PID/COLOR হেডার, মাল্টি-শিট, ব্লক-বেসড, প্রতি রো-তে Item Name/Ply
+    নিজে থেকেই ঠিক হয়ে যায়) ট্রাই করা হয়; সেই ফরম্যাট না মিললে AEO-স্টাইল
+    (PO#/STYLE# ফ্ল্যাট টেবিল, Item Name/Ply UI থেকে ম্যানুয়াল) ফলব্যাক
+    হিসেবে ব্যবহার হয়। এতে ইউজারকে আলাদা করে ফরম্যাট বেছে নিতে হয় না।
+
     Returns (combined_line_items, file_errors).
     """
     combined = []
     errors = []
     for file_stream, filename in files:
         try:
+            file_stream.seek(0)
+            items = read_norp_style_excel(file_stream, filename)
+            if items:
+                combined.extend(items)
+                continue
+        except Exception:
+            pass  # Norp-স্টাইল না হলে চুপচাপ AEO-স্টাইল ফলব্যাকে যাওয়া হবে
+
+        try:
+            file_stream.seek(0)
             items = read_booking_excel(
                 file_stream, filename,
                 item_name_override=item_name_override,

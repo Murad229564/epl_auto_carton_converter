@@ -145,7 +145,16 @@ def build_combined_excel(line_items, header_info, out_path, profile='IN-HOUSE',
     start_row = 8
     for i, r in enumerate(line_items):
         row = start_row + i
-        remarks_val = na_if_blank(r.get('delivery_place_pdf')) if remark_place else ''
+        # কিছু OUT-HOUSE Excel ফরম্যাটে (যেমন Norp Knit-এর PCK কলাম) সরাসরি
+        # একটা 'remarks' ভ্যালু line_item-এই দেওয়া থাকে — সেটা থাকলে সেটাই
+        # অগ্রাধিকার পাবে, না থাকলে আগের মতো Carton PDF-এর remark_place
+        # checkbox মেকানিজম কাজ করবে।
+        if r.get('remarks'):
+            remarks_val = na_if_blank(r.get('remarks'))
+        elif remark_place:
+            remarks_val = na_if_blank(r.get('delivery_place_pdf'))
+        else:
+            remarks_val = ''
         address_remark_val = na_if_blank(r.get('delivery_address_pdf')) if remark_address else ''
 
         item_name_val = na_if_blank(resolve_alias(r.get('item_name'), ITEM_NAME_ALIASES))
