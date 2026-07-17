@@ -1,5 +1,6 @@
 import re
 import os
+import gc
 import shutil
 import subprocess
 import tempfile
@@ -342,37 +343,48 @@ def combine_booking_excels(files, item_name_override='Master Carton', manual_ply
     (PO#/STYLE# ফ্ল্যাট টেবিল, Item Name/Ply UI থেকে ম্যানুয়াল) ফলব্যাক
     হিসেবে ব্যবহার হয়। এতে ইউজারকে আলাদা করে ফরম্যাট বেছে নিতে হয় না।
 
+    মেমরি অপটিমাইজেশন: প্রতিটা ফাইল প্রসেস করার পর (পরের ফাইলে যাওয়ার
+    আগে) pandas/openpyxl-এর তৈরি করা বড় অবজেক্টগুলো (DataFrame, parsed
+    workbook) explicitly gc.collect() দিয়ে মেমরি থেকে সরিয়ে দেওয়া হচ্ছে।
+    এটা ছাড়া একসাথে অনেক ফাইল (যেমন ৩৬টা) আপলোড করলে মেমরি জমতে জমতে
+    Render-এর free plan-এ out-of-memory (SIGKILL) হয়ে যাচ্ছিল।
+
     Returns (combined_line_items, file_errors).
     """
     combined = []
     errors = []
     for file_stream, filename in files:
         try:
-            file_stream.seek(0)
-            items = read_norp_style_excel(file_stream, filename)
-            if items:
-                combined.extend(items)
-                continue
-        except Exception:
-            pass  # Norp-স্টাইল না হলে চুপচাপ পরের ফরম্যাট ট্রাই করা হবে
+            try:
+                file_stream.seek(0)
+                items = read_norp_style_excel(file_stream, filename)
+                if items:
+                    combined.extend(items)
+                    continue
+            except Exception:
+                pass  # Norp-স্টাইল না হলে চুপচাপ পরের ফরম্যাট ট্রাই করা হবে
 
-        try:
-            file_stream.seek(0)
-            items = read_simba_style_excel(file_stream, filename, manual_ply=manual_ply)
-            if items:
-                combined.extend(items)
-                continue
-        except Exception:
-            pass  # Simba-স্টাইল না হলে চুপচাপ AEO-স্টাইল ফলব্যাকে যাওয়া হবে
+            try:
+                file_stream.seek(0)
+                items = read_simba_style_excel(file_stream, filename, manual_ply=manual_ply)
+                if items:
+                    combined.extend(items)
+                    continue
+            except Exception:
+                pass  # Simba-স্টাইল না হলে চুপচাপ AEO-স্টাইল ফলব্যাকে যাওয়া হবে
 
-        try:
-            file_stream.seek(0)
-            items = read_booking_excel(
-                file_stream, filename,
-                item_name_override=item_name_override,
-                manual_ply=manual_ply,
-            )
-            combined.extend(items)
-        except Exception as e:
-            errors.append(f"{filename}: {str(e)}")
+            try:
+                file_stream.seek(0)
+                items = read_booking_excel(
+                    file_stream, filename,
+                    item_name_override=item_name_override,
+                    manual_ply=manual_ply,
+                )
+                combined.extend(items)
+            except Exception as e:
+                errors.append(f"{filename}: {str(e)}")
+        finally:
+            # প্রতিটা ফাইল প্রসেস শেষে মেমরি explicitly ছেড়ে দেওয়া হচ্ছে —
+            # একসাথে অনেক ফাইল আপলোড হলে যেন মেমরি জমে না থাকে।
+            gc.collect()
     return combined, errors

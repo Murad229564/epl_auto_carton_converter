@@ -453,7 +453,14 @@ def autocarton_process_outhouse_excel():
     else:
         delivery_date_final = format_delivery_date(get_default_delivery_date())
 
-    file_tuples = [(io.BytesIO(f.read()), f.filename) for f in files]
+    # ফাইলগুলো আগেই একসাথে মেমরিতে read করে রাখা হচ্ছে না — Flask-এর
+    # FileStorage অবজেক্ট (f.stream) নিজেই file-like (seek/read সাপোর্ট
+    # করে), তাই সরাসরি সেটাই পাঠানো হচ্ছে combine_booking_excels-এ। এতে
+    # একসাথে অনেক ফাইল (যেমন ৩৬টা) আপলোড করলে সবগুলোর raw bytes আলাদা
+    # করে একসাথে RAM-এ রাখা লাগে না — মেমরি ব্যবহার অনেক কমে যায় এবং
+    # Render Free plan-এর 512MB limit-এ out-of-memory (SIGKILL) হওয়ার
+    # সম্ভাবনা কমে।
+    file_tuples = [(f.stream, f.filename) for f in files]
     try:
         line_items, file_errors = combine_booking_excels(
             file_tuples, item_name_override=item_name_override, manual_ply=manual_ply)
