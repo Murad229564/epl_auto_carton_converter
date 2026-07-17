@@ -27,6 +27,7 @@ CUSTOMERS = {
         "Barnali Collections Limited",
         "Modele de Capital Ind Ltd.",
         "Norp Knit Industries Ltd.",
+        "Simba Fashions Limited",
     ],
 }
 
@@ -147,6 +148,7 @@ DELIVERY_ADDRESSES = {
     'Midland Knitwear Limited': ['Midland Knitwear Limited'],
     'International Knitwear & Apparels Ltd. (Unit-2)': ['Esses Fashions Limited', 'International Knitwear & Apparels Ltd.', 'NDIL-2 STORE', 'CFDL-5 STORE', 'NDIL-1 STORE'],
     'Norp Knit Industries Ltd.': ['Prudent Fashions Ltd.', 'Norp Knit (Unit-2)', 'Norp Knit (NU)'],
+    'Simba Fashions Limited': ['Simba Fashions Limited', 'Simba Fashions Ltd. (Unit-2)', 'Tech Max LTD.', 'AKH ECO APPARELS LTD.'],
     'Epyllion Style Limited': ['Epyllion Knitwear Limited-Extention (Highway Unit)', 'Epyllion Style Limited', 'Epyllion Style Limited - Extension', 'Epyllion Knitwears Limited'],
     'Columbia Garments Limited': ['Columbia Apperals Limited'],
     'Shanta Expressions Ltd.': ['Contept Knitting Ltd.'],

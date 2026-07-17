@@ -7,6 +7,7 @@ from datetime import datetime
 import pandas as pd
 
 from norp_extractor import read_norp_style_excel
+from simba_extractor import read_simba_style_excel
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -353,7 +354,16 @@ def combine_booking_excels(files, item_name_override='Master Carton', manual_ply
                 combined.extend(items)
                 continue
         except Exception:
-            pass  # Norp-স্টাইল না হলে চুপচাপ AEO-স্টাইল ফলব্যাকে যাওয়া হবে
+            pass  # Norp-স্টাইল না হলে চুপচাপ পরের ফরম্যাট ট্রাই করা হবে
+
+        try:
+            file_stream.seek(0)
+            items = read_simba_style_excel(file_stream, filename, manual_ply=manual_ply)
+            if items:
+                combined.extend(items)
+                continue
+        except Exception:
+            pass  # Simba-স্টাইল না হলে চুপচাপ AEO-স্টাইল ফলব্যাকে যাওয়া হবে
 
         try:
             file_stream.seek(0)
