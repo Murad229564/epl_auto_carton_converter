@@ -28,6 +28,7 @@ CUSTOMERS = {
         "Modele de Capital Ind Ltd.",
         "Norp Knit Industries Ltd.",
         "Simba Fashions Limited",
+        "PRUDENT FASHION LTD.",
     ],
 }
 
@@ -60,6 +61,7 @@ BUYERS = [
     "Bonds",
     "Pointer",
     "VISTULA",
+    "Kohl`s",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -90,6 +92,7 @@ CARTON_VERIFIED_BUYERS = [
     "Primark",
     "Aditya Birla",
     "Macy",
+    "Kohl`s",
 ]
 
 BUYER_ALIASES = {
@@ -149,6 +152,7 @@ DELIVERY_ADDRESSES = {
     'International Knitwear & Apparels Ltd. (Unit-2)': ['Esses Fashions Limited', 'International Knitwear & Apparels Ltd.', 'NDIL-2 STORE', 'CFDL-5 STORE', 'NDIL-1 STORE'],
     'Norp Knit Industries Ltd.': ['Prudent Fashions Ltd.', 'Norp Knit (Unit-2)', 'Norp Knit (NU)'],
     'Simba Fashions Limited': ['Simba Fashions Limited', 'Simba Fashions Ltd. (Unit-2)', 'Tech Max LTD.', 'AKH ECO APPARELS LTD.'],
+    'PRUDENT FASHION LTD.': ['PRUDENT FASHION LTD.', 'Norp Knit Industries Ltd. (U-2)', 'Norp Knit Industries Limited.(unit-1)', 'ALPHA CLOTHING LIMITED', 'Dhaka Graments'],
     'Epyllion Style Limited': ['Epyllion Knitwear Limited-Extention (Highway Unit)', 'Epyllion Style Limited', 'Epyllion Style Limited - Extension', 'Epyllion Knitwears Limited'],
     'Columbia Garments Limited': ['Columbia Apperals Limited'],
     'Shanta Expressions Ltd.': ['Contept Knitting Ltd.'],
