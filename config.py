@@ -29,6 +29,8 @@ CUSTOMERS = {
         "Norp Knit Industries Ltd.",
         "Simba Fashions Limited",
         "PRUDENT FASHION LTD.",
+        "Kenpark Bangladesh Apparel (Pvt.) Limited",
+        "Kenpark Bangladesh (Pvt.) Limited",
     ],
 }
 
@@ -93,12 +95,14 @@ CARTON_VERIFIED_BUYERS = [
     "Aditya Birla",
     "Macy",
     "Kohl`s",
+    "Ralph Lauren",
 ]
 
 BUYER_ALIASES = {
     "M&S": "MARKS & SPENCER SCM LTD.",
     "MARKS & SPENCER": "MARKS & SPENCER SCM LTD.",
     "C&A": "C&A BUYING GMBH & CO. KG",
+    "RALPH LAUREN SOURCING CO LIMITED": "Ralph Lauren",
 }
 
 CUSTOMER_ALIASES = {
@@ -153,6 +157,8 @@ DELIVERY_ADDRESSES = {
     'Norp Knit Industries Ltd.': ['Prudent Fashions Ltd.', 'Norp Knit (Unit-2)', 'Norp Knit (NU)'],
     'Simba Fashions Limited': ['Simba Fashions Limited', 'Simba Fashions Ltd. (Unit-2)', 'Tech Max LTD.', 'AKH ECO APPARELS LTD.'],
     'PRUDENT FASHION LTD.': ['PRUDENT FASHION LTD.', 'Norp Knit Industries Ltd. (U-2)', 'Norp Knit Industries Limited.(unit-1)', 'ALPHA CLOTHING LIMITED', 'Dhaka Graments'],
+    'Kenpark Bangladesh Apparel (Pvt.) Limited': ['Kenpark Bangladesh Apparel (Pvt.) Limited', 'Kenpark Bangladesh Apparel (Pvt.) Limited-U-3', 'Kenpark Bangladesh Apparel (Pvt.) Limited- U-2', 'Kenpark Bangladesh Apparel (Pvt.) Limited- U-5'],
+    'Kenpark Bangladesh (Pvt.) Limited': ['Kenpark Bangladesh (Pvt.) Limited', 'Kenpark Bangladesh Apparel (Pvt.) Ltd.'],
     'Epyllion Style Limited': ['Epyllion Knitwear Limited-Extention (Highway Unit)', 'Epyllion Style Limited', 'Epyllion Style Limited - Extension', 'Epyllion Knitwears Limited'],
     'Columbia Garments Limited': ['Columbia Apperals Limited'],
     'Shanta Expressions Ltd.': ['Contept Knitting Ltd.'],

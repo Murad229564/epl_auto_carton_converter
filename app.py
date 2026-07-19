@@ -9,6 +9,7 @@ from extractor import process_pdf_rule_based, get_unique_delivery_info
 from builder import build_combined_excel, validate_line_items
 from outhouse_extractor import combine_booking_excels
 from outhouse_pdf_extractor import process_trims_booking_pdf
+from kenpark_extractor import read_kenpark_pdf
 from thermal_extractor import process_pdf_thermal, get_unique_delivery_info_thermal
 from thermal_builder import build_thermal_excel, validate_thermal_line_items
 from thermal_config import THERMAL_BUYERS, THERMAL_BUYER_ALIASES, THERMAL_VERIFIED_BUYERS
@@ -453,14 +454,7 @@ def autocarton_process_outhouse_excel():
     else:
         delivery_date_final = format_delivery_date(get_default_delivery_date())
 
-    # ফাইলগুলো আগেই একসাথে মেমরিতে read করে রাখা হচ্ছে না — Flask-এর
-    # FileStorage অবজেক্ট (f.stream) নিজেই file-like (seek/read সাপোর্ট
-    # করে), তাই সরাসরি সেটাই পাঠানো হচ্ছে combine_booking_excels-এ। এতে
-    # একসাথে অনেক ফাইল (যেমন ৩৬টা) আপলোড করলে সবগুলোর raw bytes আলাদা
-    # করে একসাথে RAM-এ রাখা লাগে না — মেমরি ব্যবহার অনেক কমে যায় এবং
-    # Render Free plan-এর 512MB limit-এ out-of-memory (SIGKILL) হওয়ার
-    # সম্ভাবনা কমে।
-    file_tuples = [(f.stream, f.filename) for f in files]
+    file_tuples = [(io.BytesIO(f.read()), f.filename) for f in files]
     try:
         line_items, file_errors = combine_booking_excels(
             file_tuples, item_name_override=item_name_override, manual_ply=manual_ply)
@@ -665,6 +659,159 @@ def autocarton_process_outhouse_trims_booking_pdf():
     base_name = f"{customer_name}_{buyer_name}_{combined_label}_OUTHOUSE".replace(' ', '_')
     # ফাইলসিস্টেম-অসেইফ ক্যারেক্টার সরানো হচ্ছে (Primark-এর 'ABOVE 10KG' style
     # suffix-এ '/' থাকে, যেটা path separator হিসেবে ভুল বোঝার কারণে এরর দিচ্ছিল)
+    base_name = re.sub(r'[\\/:*?"<>|]', '-', base_name)
+
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, f'{base_name}_Output.xlsx')
+            build_combined_excel(
+                line_items, header_info, out_path, profile='OUT-HOUSE',
+                customer_override=customer_name or None,
+                buyer_override=buyer_name or None,
+                po_override=po_number_override or None,
+                delivery_date=delivery_date_final,
+                delivery_address=delivery_address,
+                warnings=warnings,
+            )
+            with open(out_path, 'rb') as f:
+                file_bytes = f.read()
+    except Exception as e:
+        return jsonify({'error': f'Excel ফাইল বানাতে সমস্যা হয়েছে: {str(e)}'}), 500
+
+    if not file_bytes:
+        return jsonify({'error': 'Excel ফাইল খালি তৈরি হয়েছে — আবার চেষ্টা করুন'}), 500
+
+    buf = io.BytesIO(file_bytes)
+    response = send_file(
+        buf,
+        as_attachment=True,
+        download_name=f'{base_name}_Output.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response.headers['Content-Length'] = str(len(file_bytes))
+    response.headers['X-Warning-Count'] = str(len(warnings))
+    response.headers['X-File-Count'] = str(len(files))
+    return response
+
+
+@app.route('/autocarton/extract_header_kenpark_pdf', methods=['POST'])
+def autocarton_extract_header_kenpark_pdf():
+    """Kenpark Bangladesh Apparel (Pvt.) Limited / Kenpark Bangladesh (Pvt.)
+    Limited-এর 'PURCHASE ORDER (LOCAL FE)' PDF (Buyer: Ralph Lauren) আপলোড
+    হওয়ার সাথে সাথেই PO Number/Customer/Buyer বের করে autofill-এর জন্য
+    ফেরত দেয় — extract_header_outhouse_pdf-এর মতোই কনভেনশন।
+
+    ⚠️ এই ফরম্যাট শুধু ডিজিটালি-জেনারেট করা (সিলেক্টেবল টেক্সট আছে) PDF-এর
+    জন্য কাজ করে। স্ক্যান করা/ছবি-PDF দিলে কোনো টেক্সট/আইটেম পাওয়া যাবে না —
+    সেক্ষেত্রে kenpark_ocr_extractor.py আলাদাভাবে (ম্যানুয়াল যাচাই-সহ)
+    ব্যবহার করতে হবে, এটা এখনো এই ওয়েব রুটে wire করা হয়নি।
+    """
+    if 'pdf_file' not in request.files:
+        return jsonify({'error': 'PDF ফাইল পাওয়া যায়নি'}), 400
+
+    pdf_file = request.files['pdf_file']
+    if pdf_file.filename == '':
+        return jsonify({'error': 'ফাইল সিলেক্ট করা হয়নি'}), 400
+
+    try:
+        header_info, _items = read_kenpark_pdf(io.BytesIO(pdf_file.read()), pdf_file.filename)
+    except Exception as e:
+        return jsonify({'error': f'PDF থেকে তথ্য বের করতে সমস্যা হয়েছে: {str(e)}'}), 422
+
+    header_info['buyer'] = resolve_alias(header_info.get('buyer', ''), BUYER_ALIASES)
+    header_info['customer'] = resolve_alias(header_info.get('customer', ''), CUSTOMER_ALIASES)
+
+    return jsonify({
+        'po_number': header_info.get('po_number', '') or '',
+        'customer': header_info.get('customer', '') or '',
+        'buyer': header_info.get('buyer', '') or '',
+    })
+
+
+@app.route('/autocarton/process_kenpark_pdf', methods=['POST'])
+def autocarton_process_kenpark_pdf():
+    """Kenpark Bangladesh Apparel (Pvt.) Limited / Kenpark Bangladesh (Pvt.)
+    Limited — Buyer: Ralph Lauren — 'PURCHASE ORDER (LOCAL FE)' PDF ফরম্যাট
+    (kenpark_extractor.py)। শুধু Carton ('Master Carton') আর Divider লাইন
+    রাখা হয়, Poly Bag লাইন বাদ দেওয়া হয় (extractor নিজেই এটা করে)। একাধিক
+    PDF একসাথে আপলোড করে একটাই কম্বাইন্ড Excel বানানো যায় (Excel-বেসড
+    autocarton_process_outhouse_excel-এর মতোই, PO Number/EWO No প্রতিটা
+    লাইনে extractor থেকেই বসে, Ply-ও Description টেক্সট থেকে ডাইনামিকভাবে
+    বের হয় — তাই এখানে ম্যানুয়াল item_name/ply ফিল্ড লাগে না)।
+
+    ⚠️ শুধু ডিজিটালি-জেনারেট করা (স্ক্যান না) PDF-এর জন্য কাজ করে।
+    """
+    files = request.files.getlist('files')
+    files = [f for f in files if f and f.filename]
+    if not files:
+        return jsonify({'error': 'অন্তত একটা PDF ফাইল আপলোড করুন'}), 400
+
+    customer_name = request.form.get('customer_name', '').strip()
+    buyer_name = request.form.get('buyer_name', '').strip()
+    po_number_override = request.form.get('po_number', '').strip()
+    delivery_mode = request.form.get('delivery_mode', 'auto').strip()
+    delivery_date_manual = request.form.get('delivery_date', '').strip()
+    delivery_address = request.form.get('delivery_address', '').strip()
+
+    customer_error = validate_customer('OUT-HOUSE', customer_name)
+    if customer_error:
+        return jsonify({'error': customer_error}), 422
+
+    buyer_error = validate_buyer_in_list(buyer_name, BUYERS)
+    if buyer_error:
+        return jsonify({'error': buyer_error}), 422
+
+    address_error = validate_delivery_address(customer_name, delivery_address)
+    if address_error:
+        return jsonify({'error': address_error}), 422
+
+    if delivery_mode == 'manual':
+        is_valid, err, parsed_date = validate_manual_delivery_date(delivery_date_manual)
+        if not is_valid:
+            return jsonify({'error': err}), 422
+        delivery_date_final = format_delivery_date(parsed_date)
+    else:
+        delivery_date_final = format_delivery_date(get_default_delivery_date())
+
+    line_items = []
+    file_errors = []
+    for f in files:
+        try:
+            _hdr, items = read_kenpark_pdf(io.BytesIO(f.read()), f.filename)
+            if not items:
+                file_errors.append(
+                    f"{f.filename}: কোনো Carton/Divider লাইন-আইটেম পাওয়া যায়নি "
+                    f"(স্ক্যান করা/ছবি-PDF হতে পারে, বা পরিচিত ফরম্যাট না)"
+                )
+                continue
+            line_items.extend(items)
+        except Exception as e:
+            file_errors.append(f"{f.filename}: {str(e)}")
+
+    if not line_items:
+        msg = 'কোনো লাইন-আইটেম পাওয়া যায়নি।'
+        if file_errors:
+            msg += ' সমস্যা: ' + '; '.join(file_errors)
+        return jsonify({'error': msg}), 422
+
+    warnings = validate_line_items(line_items)
+    for e in file_errors:
+        warnings.append(f"⚠️ এই ফাইলটা স্কিপ হয়েছে: {e}")
+
+    if buyer_name not in CARTON_VERIFIED_BUYERS:
+        warnings.append(
+            f"⚠️ '{buyer_name}' buyer-এর এই Kenpark PDF ফরম্যাট এখনো নির্দিষ্টভাবে "
+            f"যাচাই করা হয়নি — আউটপুট ভালোভাবে চেক করে নিন।"
+        )
+
+    header_info = {
+        'po_number': po_number_override or '',
+        'customer': customer_name,
+        'buyer': buyer_name,
+    }
+
+    combined_label = '_'.join(sorted({str(it.get('po_no', '')) for it in line_items if it.get('po_no')}))[:60]
+    base_name = f"{customer_name}_{buyer_name}_{combined_label}_KENPARK".replace(' ', '_')
     base_name = re.sub(r'[\\/:*?"<>|]', '-', base_name)
 
     try:
