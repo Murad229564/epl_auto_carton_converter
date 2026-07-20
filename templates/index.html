@@ -325,12 +325,15 @@
         </div>
         <div class="field" id="outhouseFileTypeField" style="display:none;">
           <label>ফাইল টাইপ</label>
-          <div style="display:flex; gap:16px; margin-top:9px;">
+          <div style="display:flex; gap:16px; margin-top:9px; flex-wrap:wrap;">
             <label style="font-weight:400; display:flex; align-items:center; gap:5px; cursor:pointer;">
-              <input type="radio" name="outhouse_file_type" value="pdf" checked> PDF
+              <input type="radio" name="outhouse_file_type" value="pdf" checked> PDF (Trims Booking)
             </label>
             <label style="font-weight:400; display:flex; align-items:center; gap:5px; cursor:pointer;">
               <input type="radio" name="outhouse_file_type" value="excel"> Excel (একাধিক ফাইল)
+            </label>
+            <label style="font-weight:400; display:flex; align-items:center; gap:5px; cursor:pointer;">
+              <input type="radio" name="outhouse_file_type" value="kenpark_pdf"> Kenpark/Prudent PDF (Ralph Lauren)
             </label>
           </div>
         </div>
@@ -420,7 +423,7 @@
 
     <div class="card" id="pdfUploadCard">
       <div class="section-title">PDF আপলোড</div>
-      <div class="hint">শুধু EWO/Style/Ply/Measurement টেবিল-সহ এই PO ফরম্যাটই সাপোর্ট করবে</div>
+      <div class="hint" id="pdfUploadHint">শুধু EWO/Style/Ply/Measurement টেবিল-সহ এই PO ফরম্যাটই সাপোর্ট করবে</div>
 
       <div class="drop" id="dropZone" style="margin-top:10px;">
         <p id="dropText">এখানে PDF টেনে আনুন, বা ক্লিক করে সিলেক্ট করুন</p>
@@ -558,6 +561,7 @@ const customerCombo = setupCombo({
 
 const outhouseExcelCard = document.getElementById('outhouseExcelCard');
 const pdfUploadCard = document.getElementById('pdfUploadCard');
+const pdfUploadHint = document.getElementById('pdfUploadHint');
 const pdfSubmitCard = document.getElementById('pdfSubmitCard');
 const outhouseFileTypeField = document.getElementById('outhouseFileTypeField');
 
@@ -566,12 +570,16 @@ function getOuthouseFileType() {
   return checked ? checked.value : 'pdf';
 }
 
-// আপাতত OUT-HOUSE-এর জন্য একটাই PDF ফরম্যাট (Trims Booking) সাপোর্ট করা হয়,
-// তাই ম্যানুয়ালি ফরম্যাট বেছে নেওয়ার দরকার নেই — Customer টাইপ + ফাইল টাইপ
-// থেকেই এটা অটোমেটিক ঠিক হয়ে যায়। ভবিষ্যতে দ্বিতীয় কোনো OUT-HOUSE PDF
-// ফরম্যাট এলে, এখানে Customer/Buyer সিলেকশন অনুযায়ী ডিটেক্ট করার লজিক যোগ হবে।
+// OUT-HOUSE-এর জন্য এখন দুইটা PDF ফরম্যাট সাপোর্ট করে: 'pdf' (Trims Booking —
+// Barnali/Modele-স্টাইল) আর 'kenpark_pdf' (Kenpark/Prudent — Ralph Lauren
+// PURCHASE ORDER (LOCAL FE))। Customer টাইপ + রেডিও সিলেকশন থেকেই কোনটা
+// ব্যবহার হবে ঠিক হয়ে যায়।
 function isTrimsBookingMode() {
   return customerTypeSel.value === 'OUT-HOUSE' && getOuthouseFileType() === 'pdf';
+}
+
+function isKenparkPdfMode() {
+  return customerTypeSel.value === 'OUT-HOUSE' && getOuthouseFileType() === 'kenpark_pdf';
 }
 
 function toggleOuthouseExcelCard() {
@@ -583,6 +591,10 @@ function toggleOuthouseExcelCard() {
   pdfUploadCard.style.display = useExcel ? 'none' : 'block';
   pdfSubmitCard.style.display = useExcel ? 'none' : 'block';
   submitBtn.disabled = useExcel;
+
+  pdfUploadHint.textContent = isKenparkPdfMode()
+    ? 'Kenpark Bangladesh Apparel (Pvt.) Limited / Kenpark Bangladesh (Pvt.) Limited — Ralph Lauren-এর "PURCHASE ORDER (LOCAL FE)" PDF (শুধু ডিজিটালি-জেনারেট করা, স্ক্যান করা PDF সাপোর্ট করবে না)'
+    : 'শুধু EWO/Style/Ply/Measurement টেবিল-সহ এই PO ফরম্যাটই সাপোর্ট করবে';
 
   // PDF মোডে (IN-HOUSE বা OUT-HOUSE, দুটোতেই): যেহেতু PDF থেকেই Customer/
   // Buyer/PO সব অটো নেওয়া যায়, তাই আপলোড বক্সটা আগে দেখানো হচ্ছে, তারপর
@@ -768,7 +780,9 @@ async function extractAndAutofill(file) {
   try {
     const fd = new FormData();
     fd.append('pdf_file', file);
-    const extractEndpoint = isTrimsBookingMode() ? '/autocarton/extract_header_outhouse_pdf' : '/extract_header';
+    const extractEndpoint = isTrimsBookingMode() ? '/autocarton/extract_header_outhouse_pdf'
+      : isKenparkPdfMode() ? '/autocarton/extract_header_kenpark_pdf'
+      : '/extract_header';
     const res = await fetch(extractEndpoint, { method: 'POST', body: fd });
     const data = await res.json();
 
@@ -923,8 +937,9 @@ form.addEventListener('submit', async (e) => {
   }
 
   const trimsBookingMode = isTrimsBookingMode();
+  const kenparkPdfMode = isKenparkPdfMode();
 
-  // --- Primark: ABOVE/BELOW 10KG বাধ্যতামূলক সিলেক্ট করতে হবে ---
+  // --- Primark: ABOVE/BELOW 10KG বাধ্যতামূলক সিলেক্ট করতে হবে (শুধু Trims Booking-এ) ---
   if (trimsBookingMode && isPrimarkBuyer() && !getPrimarkWeightClass()) {
     window.alert('Primark buyer-এর জন্য "ABOVE 10KG" বা "BELOW 10KG" সিলেক্ট করা আবশ্যক — অনুগ্রহ করে সিলেক্ট করে আবার Process করুন।');
     return;
@@ -937,6 +952,11 @@ form.addEventListener('submit', async (e) => {
     // প্রতি রো-তে অটোমেটিক ঠিক হয়ে যায়)
     formData.append('files', fileInput.files[0]);
     formData.append('primark_weight_class', getPrimarkWeightClass());
+  } else if (kenparkPdfMode) {
+    // Kenpark/Prudent (Ralph Lauren) ফরম্যাট — Item Name (Master Carton/
+    // Divider) আর Ply, দুটোই extractor নিজে থেকেই PDF টেক্সট থেকে বের করে
+    // নেয়, তাই এখানেও আলাদা কোনো ম্যানুয়াল ফিল্ড লাগে না
+    formData.append('files', fileInput.files[0]);
   } else {
     formData.append('pdf_file', fileInput.files[0]);
   }
@@ -947,7 +967,7 @@ form.addEventListener('submit', async (e) => {
   formData.append('delivery_mode', document.querySelector('input[name="delivery_mode"]:checked').value);
   formData.append('delivery_date', deliveryDateInput.value);
   formData.append('delivery_address', addressInput.value.trim());
-  if (!trimsBookingMode) {
+  if (!trimsBookingMode && !kenparkPdfMode) {
     formData.append('method', 'rule_based');
     formData.append('remark_place', document.getElementById('remark_place').checked ? '1' : '');
     formData.append('remark_address', document.getElementById('remark_address').checked ? '1' : '');
@@ -961,7 +981,9 @@ form.addEventListener('submit', async (e) => {
   showOverlay('Excel ফাইল তৈরি হচ্ছে, একটু অপেক্ষা করুন...');
 
   try {
-    const endpoint = trimsBookingMode ? '/autocarton/process_outhouse_trims_booking_pdf' : '/process';
+    const endpoint = trimsBookingMode ? '/autocarton/process_outhouse_trims_booking_pdf'
+      : kenparkPdfMode ? '/autocarton/process_kenpark_pdf'
+      : '/process';
     const res = await fetch(endpoint, { method: 'POST', body: formData });
     if (!res.ok) {
       const err = await res.json();
