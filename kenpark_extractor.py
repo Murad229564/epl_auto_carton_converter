@@ -48,9 +48,9 @@ def clean(v):
 # একটা রেজেক্সে হ্যান্ডেল করা হয়েছে।
 _SIZE_RE = re.compile(r'L(\d+(?:\.\d+)?)XW(\d+(?:\.\d+)?)(?:XH(\d+(?:\.\d+)?))?CM', re.I)
 _PLY_RE = re.compile(r'(\d+)\s*Ply', re.I)
-_TOP_PO_RE = re.compile(r'\b(BDKAPO\d+)\b', re.I)
+_TOP_PO_RE = re.compile(r'\b([A-Z]{2,8}PO\d{4,})\b')
 _BUYER_LINE_RE = re.compile(
-    r'Buyer\s*:\s*(.+?)\s*/\s*Style\s*:\s*(\S+)\s*/\s*Sales\s*order\s*:\s*(\S+)', re.I
+    r'Buyer\s*:\s*(.+?)\s*/\s*Style\s*:\s*(.+?)\s*/\s*Sales\s*order\s*:\s*(\S+)', re.I
 )
 _DELIVERY_DATE_RE = re.compile(r'Delivery\s*date\s*:\s*(.+)', re.I)
 
@@ -136,6 +136,30 @@ def _extract_customer(first_page_text):
     return ''
 
 
+def _merge_wrapped_buyer_lines(lines):
+    """লম্বা Style নাম হলে 'Buyer : ... / Style : ... / Sales order :' লাইনটা
+    wrap হয়ে Sales order-এর ভ্যালুটা পরের ভিজ্যুয়াল লাইনে চলে যেতে পারে —
+    তখন _BUYER_LINE_RE ম্যাচ করে না। এখানে সেই কেস ধরে পরের লাইনটা জুড়ে
+    দেওয়া হয় (regex মিলে গেলেই), যাতে ডাটা হারিয়ে না যায়।"""
+    merged = []
+    skip_next = False
+    for i, lw in enumerate(lines):
+        if skip_next:
+            skip_next = False
+            continue
+        text = clean(' '.join(w['text'] for w in lw))
+        if text.startswith('Buyer') and 'Sales order' in text and not _BUYER_LINE_RE.search(text):
+            if i + 1 < len(lines):
+                combined_words = lw + lines[i + 1]
+                combined_text = clean(' '.join(w['text'] for w in combined_words))
+                if _BUYER_LINE_RE.search(combined_text):
+                    merged.append(combined_words)
+                    skip_next = True
+                    continue
+        merged.append(lw)
+    return merged
+
+
 def read_kenpark_pdf(file_stream, filename=''):
     """মূল entry point। রিটার্ন করে (header_info, items) — header_info-তে
     UI-এর জন্য po_number/customer/buyer থাকে (extractor.py-এর
@@ -213,6 +237,7 @@ def read_kenpark_pdf(file_stream, filename=''):
         for page in pdf.pages:
             words = page.extract_words()
             lines = _group_rows_by_top(words)
+            lines = _merge_wrapped_buyer_lines(lines)
             for line_words in lines:
                 line_text = clean(' '.join(w['text'] for w in line_words))
 

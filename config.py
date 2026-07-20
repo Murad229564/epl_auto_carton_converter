@@ -31,6 +31,7 @@ CUSTOMERS = {
         "PRUDENT FASHION LTD.",
         "Kenpark Bangladesh Apparel (Pvt.) Limited",
         "Kenpark Bangladesh (Pvt.) Limited",
+        "Regency Three Limited",
     ],
 }
 
@@ -159,6 +160,7 @@ DELIVERY_ADDRESSES = {
     'PRUDENT FASHION LTD.': ['PRUDENT FASHION LTD.', 'Norp Knit Industries Ltd. (U-2)', 'Norp Knit Industries Limited.(unit-1)', 'ALPHA CLOTHING LIMITED', 'Dhaka Graments'],
     'Kenpark Bangladesh Apparel (Pvt.) Limited': ['Kenpark Bangladesh Apparel (Pvt.) Limited', 'Kenpark Bangladesh Apparel (Pvt.) Limited-U-3', 'Kenpark Bangladesh Apparel (Pvt.) Limited- U-2', 'Kenpark Bangladesh Apparel (Pvt.) Limited- U-5'],
     'Kenpark Bangladesh (Pvt.) Limited': ['Kenpark Bangladesh (Pvt.) Limited', 'Kenpark Bangladesh Apparel (Pvt.) Ltd.'],
+    'Regency Three Limited': ['Regency Three Limited', 'Regency Three Limited U4', 'Regency Three LimitedU5 WP'],
     'Epyllion Style Limited': ['Epyllion Knitwear Limited-Extention (Highway Unit)', 'Epyllion Style Limited', 'Epyllion Style Limited - Extension', 'Epyllion Knitwears Limited'],
     'Columbia Garments Limited': ['Columbia Apperals Limited'],
     'Shanta Expressions Ltd.': ['Contept Knitting Ltd.'],

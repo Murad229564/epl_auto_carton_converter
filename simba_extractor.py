@@ -19,7 +19,7 @@ from openpyxl import load_workbook
 #     'MDS', 'HAF') পুরো শিটের জন্য একটাই Remarks হিসেবে বসে
 #   - Style No / Pack Type / Reference / Qty / L-W-H — মূল ডাটা-টেবিল থেকে,
 #     কিন্তু সাইজ-কলামের সংখ্যা (Size Assortments) PO-ভেদে ভিন্ন হতে পারে
-#     (norp-এর মতোই), তাই পরের কলামগুলোর (CTN SHIP QTY, Length/Width/Height
+#     (norp-এর মতোই), তাই পরের কলামগুলোর (No of carton booking, Length/Width/Height
 #     ইত্যাদি) পজিশন হেডার-লেবেল স্ক্যান করে ডাইনামিকভাবে বের করা হয়
 #   - Ply: এই ফরম্যাটে কোনো PLY কলাম নেই, তাই আপলোড ফর্মে ইউজার-এন্টার করা
 #     manual_ply ব্যবহার হয় (ঠিক outhouse_extractor.py-এর AEO ফলব্যাকের
@@ -53,7 +53,7 @@ def _find_header_row(ws, max_scan=60):
 
 
 def _build_dynamic_col_map(ws, header_row, window=4):
-    """PID/PPK Code/Description কলাম header_row-এই থাকে, কিন্তু CTN SHIP QTY,
+    """PID/PPK Code/Description কলাম header_row-এই থাকে, কিন্তু No of carton booking,
     Length/Width/Height ইত্যাদি সাইজ-কলামের সংখ্যার ওপর নির্ভর করে শিফট হয় —
     তাই header_row থেকে কয়েক রো নিচ পর্যন্ত (সব সাব-হেডার সহ) প্রতিটা কলামের
     লেবেল-টেক্সট জোড়া লাগিয়ে স্ক্যান করা হচ্ছে, fixed index ধরে রাখা হচ্ছে না।"""
@@ -73,7 +73,7 @@ def _build_dynamic_col_map(ws, header_row, window=4):
             col_map['pack_type'] = c
         elif label == 'description':
             col_map['reference'] = c
-        elif 'ctnshipqty' in label:
+        elif 'noofcartonbooking' in label:
             col_map['qty'] = c
         elif label.startswith('lengthcm') or label == 'length':
             col_map['length'] = c
