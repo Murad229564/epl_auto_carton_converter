@@ -32,6 +32,7 @@ CUSTOMERS = {
         "Kenpark Bangladesh Apparel (Pvt.) Limited",
         "Kenpark Bangladesh (Pvt.) Limited",
         "Regency Three Limited",
+        "Ventura (HK) Trading Limited",
     ],
 }
 
@@ -65,6 +66,11 @@ BUYERS = [
     "Pointer",
     "VISTULA",
     "Kohl`s",
+    "Kate Spade",
+    "Michael Kors",
+    "Coach",
+    "Le Sportsac",
+    "Vera Bradley",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -97,6 +103,11 @@ CARTON_VERIFIED_BUYERS = [
     "Macy",
     "Kohl`s",
     "Ralph Lauren",
+    "Kate Spade",
+    "Michael Kors",
+    "Coach",
+    "Le Sportsac",
+    "Vera Bradley",
 ]
 
 BUYER_ALIASES = {

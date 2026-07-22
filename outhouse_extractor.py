@@ -9,6 +9,7 @@ import pandas as pd
 from norp_extractor import read_norp_style_excel
 from simba_extractor import read_simba_style_excel
 from pfl_extractor import read_pfl_style_excel
+from ventura_extractor import read_ventura_style_excel
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -330,7 +331,7 @@ def read_booking_excel(file_stream, filename='', item_name_override='Master Cart
     return items
 
 
-def combine_booking_excels(files, item_name_override='Master Carton', manual_ply=''):
+def combine_booking_excels(files, item_name_override='Master Carton', manual_ply='', buyer_name=''):
     """files: [(file_stream, filename), ...] — আপলোড হওয়া ক্রম অনুযায়ী।
     প্রতিটা ফাইল থেকে ডাটা নিয়ে ক্রমানুসারে (প্রথম ফাইলের ঠিক নিচেই পরের
     ফাইলের ডাটা) একটাই কম্বাইনড লিস্টে জোড়া লাগিয়ে দেয়। কোনো একটা ফাইলে
@@ -373,7 +374,18 @@ def combine_booking_excels(files, item_name_override='Master Carton', manual_ply
                 combined.extend(items)
                 continue
         except Exception:
-            pass  # PFL-স্টাইল না হলে চুপচাপ AEO-স্টাইল ফলব্যাকে যাওয়া হবে
+            pass  # PFL-স্টাইল না হলে চুপচাপ পরের ফরম্যাট ট্রাই করা হবে
+
+        try:
+            file_stream.seek(0)
+            items = read_ventura_style_excel(
+                file_stream, filename, buyer_key=buyer_name,
+                item_name_override=item_name_override, manual_ply=manual_ply)
+            if items:
+                combined.extend(items)
+                continue
+        except Exception:
+            pass  # Ventura-স্টাইল না হলে চুপচাপ AEO-স্টাইল ফলব্যাকে যাওয়া হবে
 
         try:
             file_stream.seek(0)
