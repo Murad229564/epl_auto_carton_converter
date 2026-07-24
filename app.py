@@ -6,7 +6,7 @@ import tempfile
 from flask import Flask, request, render_template, send_file, jsonify
 
 from extractor import process_pdf_rule_based, get_unique_delivery_info
-from builder import build_combined_excel, validate_line_items
+from builder import build_combined_excel, validate_line_items, build_pdf_full_dump, build_excel_full_dump
 from outhouse_extractor import combine_booking_excels
 from outhouse_pdf_extractor import process_trims_booking_pdf
 from kenpark_extractor import read_kenpark_pdf
@@ -224,6 +224,7 @@ def process():
                 warnings=warnings,
                 remark_place=remark_place,
                 remark_address=remark_address,
+                full_dump=[build_pdf_full_dump(io.BytesIO(pdf_bytes_raw), pdf_file.filename)],
             )
             with open(out_path, 'rb') as f:
                 file_bytes = f.read()
@@ -512,6 +513,7 @@ def autocarton_process_outhouse_excel():
                 delivery_date=delivery_date_final,
                 delivery_address=delivery_address,
                 warnings=warnings,
+                full_dump=[build_excel_full_dump(fs, fn) for fs, fn in file_tuples],
             )
             with open(out_path, 'rb') as f:
                 file_bytes = f.read()
@@ -616,9 +618,12 @@ def autocarton_process_outhouse_trims_booking_pdf():
 
     line_items = []
     file_errors = []
+    file_bytes_list = []
     for f in files:
+        raw_bytes = f.read()
+        file_bytes_list.append((raw_bytes, f.filename))
         try:
-            _hdr, items = process_trims_booking_pdf(io.BytesIO(f.read()), CUSTOMERS.get('OUT-HOUSE', []), BUYERS)
+            _hdr, items = process_trims_booking_pdf(io.BytesIO(raw_bytes), CUSTOMERS.get('OUT-HOUSE', []), BUYERS)
             if not items:
                 file_errors.append(f"{f.filename}: কোনো লাইন-আইটেম পাওয়া যায়নি (পরিচিত ফরম্যাট না হতে পারে)")
                 continue
@@ -674,6 +679,7 @@ def autocarton_process_outhouse_trims_booking_pdf():
                 delivery_date=delivery_date_final,
                 delivery_address=delivery_address,
                 warnings=warnings,
+                full_dump=[build_pdf_full_dump(io.BytesIO(b), fn) for b, fn in file_bytes_list],
             )
             with open(out_path, 'rb') as f:
                 file_bytes = f.read()
@@ -777,9 +783,12 @@ def autocarton_process_kenpark_pdf():
 
     line_items = []
     file_errors = []
+    file_bytes_list = []
     for f in files:
+        raw_bytes = f.read()
+        file_bytes_list.append((raw_bytes, f.filename))
         try:
-            _hdr, items = read_kenpark_pdf(io.BytesIO(f.read()), f.filename)
+            _hdr, items = read_kenpark_pdf(io.BytesIO(raw_bytes), f.filename)
             if not items:
                 file_errors.append(
                     f"{f.filename}: কোনো Carton/Divider লাইন-আইটেম পাওয়া যায়নি "
@@ -827,6 +836,7 @@ def autocarton_process_kenpark_pdf():
                 delivery_date=delivery_date_final,
                 delivery_address=delivery_address,
                 warnings=warnings,
+                full_dump=[build_pdf_full_dump(io.BytesIO(b), fn) for b, fn in file_bytes_list],
             )
             with open(out_path, 'rb') as f:
                 file_bytes = f.read()

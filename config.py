@@ -127,7 +127,7 @@ CARTON_VERIFIED_BUYERS = [
 CUSTOMER_BUYER_MAP = {
     'Simba Fashions Limited': ['Macy'],
     'PRUDENT FASHION LTD.': ["Kohl`s"],
-    'Norp Knit Industries Ltd.': ["Kohl`s"],
+    'Norp Knit Industries Ltd.': ["Macy"],
     'Ventura (HK) Trading Limited': ['Kate Spade', 'Michael Kors', 'Coach', 'Le Sportsac', 'Vera Bradley'],
 }
 

@@ -1,5 +1,6 @@
 import os
 from copy import copy
+import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from config import ITEM_NAME_ALIASES, resolve_alias
@@ -100,17 +101,81 @@ def _matches_u_divider_measurement(length, width):
     return (l, w) in {(93, 36), (51, 41)}
 
 
+def build_excel_full_dump(file_stream, filename):
+    """একটা আপলোড করা Excel ফাইলের (হাইড শিট-সহ, সবগুলো শিট) প্রতিটা
+    সেল raw আকারে বের করে — 'Full Source Data' শীটে বসানোর জন্য। কোনো
+    ডাটা প্রসেসিং/ম্যাপিং হয় না, একদম যা আছে তাই।"""
+    file_stream.seek(0)
+    sheets = pd.read_excel(file_stream, sheet_name=None, header=None)
+    out = {}
+    for sheet_name, df in sheets.items():
+        df = df.where(pd.notna(df), None)
+        out[sheet_name] = df.values.tolist()
+    return {'filename': filename, 'type': 'excel', 'sheets': out}
+
+
+def build_pdf_full_dump(file_stream, filename):
+    """একটা আপলোড করা PDF ফাইলের প্রতিটা পাতার সম্পূর্ণ টেক্সট বের করে —
+    'Full Source Data' শীটে বসানোর জন্য (টেবিল-স্ট্রাকচার ছাড়াই, raw টেক্সট,
+    যাতে extractor কোনো লাইন/ফিল্ড মিস করলেও ম্যানুয়ালি খুঁজে নেওয়া যায়)।"""
+    file_stream.seek(0)
+    import pdfplumber
+    pages = []
+    with pdfplumber.open(file_stream) as pdf:
+        for page in pdf.pages:
+            pages.append(page.extract_text() or '(এই পাতা থেকে টেক্সট বের করা যায়নি — সম্ভবত স্ক্যান করা/ছবি-পাতা)')
+    return {'filename': filename, 'type': 'pdf', 'pages': pages}
+
+
+def _add_full_source_dump_sheet(wb, dump_items):
+    """dump_items (build_excel_full_dump/build_pdf_full_dump-এর রেজাল্ট
+    লিস্ট) থেকে একটা 'Full Source Data' শীট বানায় — প্রতিটা আপলোড-করা
+    ফাইলের (Excel হলে প্রতিটা শিট, PDF হলে প্রতিটা পাতা, হাইড শিট-সহ)
+    সম্পূর্ণ raw ডাটা একসাথে, যাতে ম্যাপিং-এ কোনো ফিল্ড মিস হয়ে গেলেও
+    ইউজার নিজে থেকে খুঁজে নিতে পারেন — এর জন্য আবার আপলোড করে অপেক্ষা
+    করা লাগবে না।"""
+    if not dump_items:
+        return
+    ws = wb.create_sheet('Full Source Data')
+    r = 1
+    for item in dump_items:
+        ws.cell(row=r, column=1, value=f"===== ফাইল: {item['filename']} =====")
+        r += 1
+        if item['type'] == 'excel':
+            for sheet_name, rows in item['sheets'].items():
+                ws.cell(row=r, column=1, value=f"--- শিট: {sheet_name} ---")
+                r += 1
+                for row in rows:
+                    for ci, val in enumerate(row, start=1):
+                        ws.cell(row=r, column=ci, value=val)
+                    r += 1
+                r += 1  # ব্লক-এর পর ফাঁকা রো
+        elif item['type'] == 'pdf':
+            for pi, page_text in enumerate(item['pages'], start=1):
+                ws.cell(row=r, column=1, value=f"--- পাতা {pi} ---")
+                r += 1
+                for line in str(page_text).split('\n'):
+                    ws.cell(row=r, column=1, value=line)
+                    r += 1
+                r += 1
+        r += 1  # ফাইলের পর অতিরিক্ত ফাঁকা রো
+
+
 def build_combined_excel(line_items, header_info, out_path, profile='IN-HOUSE',
                           customer_override=None, buyer_override=None,
                           po_override=None, delivery_date='', delivery_address='',
                           raw_df=None, summary_df=None, warnings=None,
-                          remark_place=False, remark_address=False):
+                          remark_place=False, remark_address=False,
+                          full_dump=None):
     """একটাই .xlsx ফাইল বানায় — zip আর দরকার নেই। শীটগুলো:
     - Sheet1        : Mapped Template (এটাই ওপেন হলে সবার আগে দেখা যাবে)
     - Raw Data      : canonical raw extracted line items
     - PO Details    : PDF-এ যেভাবে কলাম ছিল ঠিক সেভাবে (অরিজিনাল হেডিং)
     - PO Summary    : PDF-এর প্রথম পাতার Business Line সামারি টেবিল (থাকলে)
     - Warnings      : must-have ফিল্ড মিসিং থাকলে (থাকলে)
+    - Full Source Data : আপলোড-করা মূল ফাইল(গুলো)-র প্রতিটা শিট/পাতার
+      সম্পূর্ণ raw ডাটা, হাইড শিট-সহ (full_dump দেওয়া থাকলে) — কোনো ফিল্ড
+      ম্যাপিং-এ মিস হয়ে গেলে ম্যানুয়ালি খুঁজে নেওয়ার জন্য
 
     remark_place / remark_address: UI-র দুটো চেকমার্ক। চেক করা থাকলে PDF থেকে
     পাওয়া সেই row-এর Delivery Place / Delivery Address ভ্যালুটা Remarks কলামে
@@ -202,4 +267,6 @@ def build_combined_excel(line_items, header_info, out_path, profile='IN-HOUSE',
         _write_df_sheet(wb, 'Warnings', pd.DataFrame({'Warning': warnings}))
 
     wb.active = 0  # Excel খুললে যেন Sheet1 (Mapped Template) সবার আগে দেখায়
+    _add_full_source_dump_sheet(wb, full_dump)
+
     wb.save(out_path)

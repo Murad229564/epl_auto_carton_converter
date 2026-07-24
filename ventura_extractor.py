@@ -134,6 +134,31 @@ def _pick_measurement_group(measurement_groups):
     return None, False
 
 
+def _get_visible_sheet_names(file_stream, filename):
+    """হাইড (hidden/veryHidden) করা শিট বাদ দিতে, দৃশ্যমান শিটের নামের
+    লিস্ট বের করে। শনাক্ত করতে না পারলে (কোনো এক্সসেপশন হলে) None রিটার্ন
+    করে — তখন নিরাপদ ডিফল্ট হিসেবে সব শিটই প্রসেস হবে (আগের আচরণ)।"""
+    try:
+        file_stream.seek(0)
+        if filename.lower().endswith('.xls'):
+            import xlrd
+            book = xlrd.open_workbook(file_contents=file_stream.read())
+            return [
+                name for name in book.sheet_names()
+                if book.sheet_by_name(name).visibility == 0
+            ]
+        else:
+            from openpyxl import load_workbook as _load_wb
+            wb = _load_wb(file_stream, read_only=True, data_only=True)
+            names = [ws.title for ws in wb.worksheets if ws.sheet_state == 'visible']
+            wb.close()
+            return names
+    except Exception:
+        return None
+    finally:
+        file_stream.seek(0)
+
+
 def read_ventura_style_excel(file_stream, filename='', buyer_key='', item_name_override='', manual_ply=''):
     """মূল entry point। buyer_key যেমন 'Kate Spade'/'Michael Kors'/'Coach'/
     'Le Sportsac'/'Vera Bradley' (case-insensitive, স্পেস বাদ দিয়ে) — কোন
@@ -147,9 +172,12 @@ def read_ventura_style_excel(file_stream, filename='', buyer_key='', item_name_o
     pack_labels = profile.get('pack', [])
 
     sheets = pd.read_excel(file_stream, sheet_name=None, header=None)
+    visible_sheet_names = _get_visible_sheet_names(file_stream, filename)
     all_items = []
 
     for sheet_name, df in sheets.items():
+        if visible_sheet_names is not None and sheet_name not in visible_sheet_names:
+            continue  # হাইড করা শিট — স্কিপ
         header_rows = _find_header_rows(df)
         for idx, header_row in enumerate(header_rows):
             col_map, measurement_groups = _build_col_map(df, header_row)
@@ -180,26 +208,36 @@ def read_ventura_style_excel(file_stream, filename='', buyer_key='', item_name_o
                 if not _is_num(qty_val) or not style_val:
                     continue
 
-                try:
-                    length = float(df.iat[r, meas_col])
-                    width = float(df.iat[r, meas_col + 2])
-                    height = float(df.iat[r, meas_col + 4])
-                except (TypeError, ValueError):
-                    continue
-                if needs_mm_conversion:
-                    length, width, height = length / 10, width / 10, height / 10
-
                 def fmt(n):
                     return str(int(n)) if float(n).is_integer() else str(n)
+
+                def parse_dim(col_offset):
+                    """L/W/H যেকোনো একটা কলাম আলাদাভাবে পার্স করে — ফাঁকা/সংখ্যা
+                    না হলে '' রিটার্ন করে, পুরো রো বাদ দেয় না (Divider-জাতীয়
+                    আইটেমে Height না-ও থাকতে পারে, সেটাও visible-যা-আছে-তাই
+                    হিসেবে রাখা হয়)।"""
+                    try:
+                        v = float(df.iat[r, meas_col + col_offset])
+                    except (TypeError, ValueError):
+                        return ''
+                    if needs_mm_conversion:
+                        v = v / 10
+                    return fmt(v)
+
+                length = parse_dim(0)
+                width = parse_dim(2)
+                height = parse_dim(4)
+                if not length and not width and not height:
+                    continue  # measurement কলামেই কিছু নেই — এই রো সত্যিই ডাটা-রো না
 
                 all_items.append({
                     'item_name': item_name_override or '',
                     'ewo_no': 'N/A',
                     'style_no': style_val,
                     'po_no': po_no,
-                    'length': fmt(length),
-                    'width': fmt(width),
-                    'height': fmt(height),
+                    'length': length,
+                    'width': width,
+                    'height': height,
                     'ply': manual_ply.strip() if manual_ply else '',
                     'qty': qty_val,
                     'pack_type': _clean(df.iat[r, pack_col]) if pack_col is not None else 'N/A',
