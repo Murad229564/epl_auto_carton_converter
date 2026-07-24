@@ -372,21 +372,26 @@ def _wrap_aeo(file_stream, filename, item_name_override, manual_ply, buyer_name)
 # (normalize(customer_name), normalize(buyer_name))। বায়ার-নির্বিশেষে একই
 # ফরম্যাট হলে '*' (wildcard) ব্যবহার করা হয়েছে।
 #
-# একই কাস্টমারের একাধিক সম্ভাব্য ফরম্যাট থাকলে (যেমন Norp Knit Industries
-# Ltd. — এদের পুরনো norp-স্টাইল আর নতুন PFL-স্টাইল দুটোই আসতে পারে) সেই
-# এন্ট্রিতে একাধিক extractor একটা লিস্টে দেওয়া হয় — প্রথমটা মিলে গেলে
-# সেটাই ব্যবহার হয়, না মিললে পরেরটা ট্রাই হয়। এটা শুধু **সেই একই
-# কাস্টমারের নিজের ফরম্যাটগুলোর ভেতরেই** সীমাবদ্ধ থাকে — অন্য কোনো
-# কাস্টমারের এক্সট্র্যাক্টর কখনো ভুলবশত ট্রাই হবে না, তাই কনফ্লিক্টের
-# ঝুঁকি থাকে না।
+# ১০০% বায়ার-ওয়াইজ স্ট্রিক্ট: প্রতিটা (customer, buyer) কম্বিনেশনের জন্য
+# ঠিক একটাই extractor বাঁধা থাকে, কোনো ফলব্যাক-চেইন/ট্রাই নেই — ঠিক
+# Ventura-এর মতো। UI-তে যে buyer সিলেক্ট করা হবে, শুধু সেই buyer-এর
+# নির্দিষ্ট extractor-টাই চলবে; অন্য কোনো buyer-এর ফরম্যাট কখনো ট্রাই
+# হবে না, তাই সময়ও কম লাগে আর কনফ্লিক্টের কোনো ঝুঁকিও থাকে না।
+#
+# PFL আর Norp একই গ্রুপের দুই কাস্টমার (Prudent Fashion Ltd. / Norp Knit
+# Industries Ltd.), দুজনেরই বায়ার লিস্ট same (Macy, Kohl`s) — কিন্তু
+# বায়ার অনুযায়ী ফরম্যাট আলাদা: Macy -> norp-স্টাইল এক্সেল, Kohl`s ->
+# pfl-স্টাইল এক্সেল। তাই দুই কাস্টমারের ক্ষেত্রেই একই বায়ার-ওয়াইজ ম্যাপিং।
 #
 # নতুন কাস্টমার/বায়ার যোগ করতে হলে এখানে শুধু একটা লাইন যোগ করলেই হবে —
 # বাকি কোনো কোড বদলানোর দরকার নেই।
 # ---------------------------------------------------------------------------
 REGISTRY = {
     (_norm_key('Simba Fashions Limited'), '*'): [_wrap_simba],
-    (_norm_key('PRUDENT FASHION LTD.'), '*'): [_wrap_pfl],
-    (_norm_key('Norp Knit Industries Ltd.'), '*'): [_wrap_norp, _wrap_pfl],
+    (_norm_key('PRUDENT FASHION LTD.'), _norm_key('Macy')): [_wrap_norp],
+    (_norm_key('PRUDENT FASHION LTD.'), _norm_key("Kohl`s")): [_wrap_pfl],
+    (_norm_key('Norp Knit Industries Ltd.'), _norm_key('Macy')): [_wrap_norp],
+    (_norm_key('Norp Knit Industries Ltd.'), _norm_key("Kohl`s")): [_wrap_pfl],
     (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Kate Spade')): [_wrap_ventura],
     (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Michael Kors')): [_wrap_ventura],
     (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Coach')): [_wrap_ventura],

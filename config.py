@@ -124,10 +124,50 @@ CARTON_VERIFIED_BUYERS = [
 # নতুন কাস্টমার/বায়ার যোগ করলে দুই জায়গাতেই (এখানে + REGISTRY) এন্ট্রি
 # যোগ করতে হবে।
 # ---------------------------------------------------------------------------
+_IN_HOUSE_BUYERS = [
+    "MARKS & SPENCER SCM LTD.",
+    "C&A BUYING GMBH & CO. KG",
+    "S.OLIVER",
+    "Celio",
+    "Next",
+    "Calvin Klein",
+    "Original Marines",
+    "Target Australia",
+    "Tommy Hilfiger",
+    "Tommy Jeans",
+    "Carhartt",
+    "Varner",
+    "Express",
+    "Country Road",
+    "Puma",
+    "Lands` End",
+    "Ralph Lauren",
+    "Stanley Stella",
+    "G-Star",
+    "Klattermusen",
+    "Bonds",
+    "Pointer",
+    "VISTULA",
+]
+
 CUSTOMER_BUYER_MAP = {
+    # --- IN-HOUSE — সব IN-HOUSE কাস্টমারের জন্য একই বায়ার-লিস্ট ---
+    'Epyllion Style Limited': _IN_HOUSE_BUYERS,
+    'Epyllion Knitwears Limited': _IN_HOUSE_BUYERS,
+    'Dekko Knitwears Limited': _IN_HOUSE_BUYERS,
+    'Dazzling Dresses Ltd.': _IN_HOUSE_BUYERS,
+
+    # --- OUT-HOUSE ---
+    'GoodEarth Apparels ltd.': ['American Eagle', 'Aditya Birla'],
+    'Barnali Textile and Printing Industries (Pvt) Ltd.': ['Hultafors Group AB'],
+    'Barnali Collections Limited': ['Hultafors Group AB'],
+    'Modele de Capital Ind Ltd.': ['Primark'],
+    'Norp Knit Industries Ltd.': ['Macy', "Kohl`s"],
+    'PRUDENT FASHION LTD.': ["Kohl`s", 'Macy'],
     'Simba Fashions Limited': ['Macy'],
-    'PRUDENT FASHION LTD.': ["Kohl`s"],
-    'Norp Knit Industries Ltd.': ["Macy"],
+    'Kenpark Bangladesh Apparel (Pvt.) Limited': ['Ralph Lauren'],
+    'Kenpark Bangladesh (Pvt.) Limited': ['Ralph Lauren'],
+    'Regency Three Limited': ['Ralph Lauren'],
     'Ventura (HK) Trading Limited': ['Kate Spade', 'Michael Kors', 'Coach', 'Le Sportsac', 'Vera Bradley'],
 }
 
