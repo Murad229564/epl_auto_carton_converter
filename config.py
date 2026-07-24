@@ -110,6 +110,27 @@ CARTON_VERIFIED_BUYERS = [
     "Vera Bradley",
 ]
 
+# ---------------------------------------------------------------------------
+# CUSTOMER_BUYER_MAP — এই ডিকশনারিতে যে কাস্টমারদের এন্ট্রি আছে, শুধু
+# তাদের ক্ষেত্রেই UI-তে Customer সিলেক্ট করার পর Buyer ড্রপডাউন ফিল্টার
+# হয়ে শুধু সেই কাস্টমারের জন্য "আপডেট করা" বায়ারগুলোই দেখাবে (বাকি সব
+# বায়ার লুকানো থাকবে, কনফিউশন/ভুল সিলেকশন এড়াতে)।
+#
+# এখানে যে কাস্টমারের এন্ট্রি নেই (যেমন GoodEarth/Barnali/Modele/Kenpark/
+# Regency — এরা PDF-বেসড, বা এখনো নির্দিষ্ট বায়ার-সেট ঠিক করা হয়নি), তাদের
+# ক্ষেত্রে Buyer ড্রপডাউনে আগের মতোই পুরো গ্লোবাল BUYERS লিস্ট দেখাবে।
+#
+# outhouse_extractor.py-এর REGISTRY-এর সাথে এটা সবসময় মিলিয়ে রাখুন —
+# নতুন কাস্টমার/বায়ার যোগ করলে দুই জায়গাতেই (এখানে + REGISTRY) এন্ট্রি
+# যোগ করতে হবে।
+# ---------------------------------------------------------------------------
+CUSTOMER_BUYER_MAP = {
+    'Simba Fashions Limited': ['Macy'],
+    'PRUDENT FASHION LTD.': ["Kohl`s"],
+    'Norp Knit Industries Ltd.': ["Kohl`s"],
+    'Ventura (HK) Trading Limited': ['Kate Spade', 'Michael Kors', 'Coach', 'Le Sportsac', 'Vera Bradley'],
+}
+
 BUYER_ALIASES = {
     "M&S": "MARKS & SPENCER SCM LTD.",
     "MARKS & SPENCER": "MARKS & SPENCER SCM LTD.",

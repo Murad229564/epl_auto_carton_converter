@@ -331,70 +331,118 @@ def read_booking_excel(file_stream, filename='', item_name_override='Master Cart
     return items
 
 
-def combine_booking_excels(files, item_name_override='Master Carton', manual_ply='', buyer_name=''):
+def _norm_key(s):
+    """Customer/Buyer নাম মেলানোর জন্য normalize — স্পেস/পাংচুয়েশন/কেস
+    বাদ দিয়ে, যাতে সামান্য বানান-ভিন্নতাতেও সঠিক এন্ট্রি মেলে।"""
+    return re.sub(r'[^a-z0-9]', '', str(s or '').lower())
+
+
+# --- প্রতিটা extractor-কে একটা কমন ইন্টারফেসে wrap করা হয়েছে
+# (file_stream, filename, item_name_override, manual_ply, buyer_name) ->
+# items — যাতে REGISTRY-তে সব এন্ট্রি একইভাবে কল করা যায়, extractor-ভেদে
+# আলাদা প্যারামিটার মনে রাখতে না হয়। মূল extractor ফাইলগুলোর কোনো কোড
+# বদলানো হয়নি, শুধু এখানে uniform ভাবে কল করা হচ্ছে।
+
+def _wrap_norp(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_norp_style_excel(file_stream, filename)
+
+
+def _wrap_simba(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_simba_style_excel(file_stream, filename, manual_ply=manual_ply)
+
+
+def _wrap_pfl(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_pfl_style_excel(file_stream, filename)
+
+
+def _wrap_ventura(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_ventura_style_excel(
+        file_stream, filename, buyer_key=buyer_name,
+        item_name_override=item_name_override, manual_ply=manual_ply)
+
+
+def _wrap_aeo(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_booking_excel(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
+
+
+# ---------------------------------------------------------------------------
+# CUSTOMER + BUYER -> extractor রেজিস্ট্রি। এখানে key হলো
+# (normalize(customer_name), normalize(buyer_name))। বায়ার-নির্বিশেষে একই
+# ফরম্যাট হলে '*' (wildcard) ব্যবহার করা হয়েছে।
+#
+# একই কাস্টমারের একাধিক সম্ভাব্য ফরম্যাট থাকলে (যেমন Norp Knit Industries
+# Ltd. — এদের পুরনো norp-স্টাইল আর নতুন PFL-স্টাইল দুটোই আসতে পারে) সেই
+# এন্ট্রিতে একাধিক extractor একটা লিস্টে দেওয়া হয় — প্রথমটা মিলে গেলে
+# সেটাই ব্যবহার হয়, না মিললে পরেরটা ট্রাই হয়। এটা শুধু **সেই একই
+# কাস্টমারের নিজের ফরম্যাটগুলোর ভেতরেই** সীমাবদ্ধ থাকে — অন্য কোনো
+# কাস্টমারের এক্সট্র্যাক্টর কখনো ভুলবশত ট্রাই হবে না, তাই কনফ্লিক্টের
+# ঝুঁকি থাকে না।
+#
+# নতুন কাস্টমার/বায়ার যোগ করতে হলে এখানে শুধু একটা লাইন যোগ করলেই হবে —
+# বাকি কোনো কোড বদলানোর দরকার নেই।
+# ---------------------------------------------------------------------------
+REGISTRY = {
+    (_norm_key('Simba Fashions Limited'), '*'): [_wrap_simba],
+    (_norm_key('PRUDENT FASHION LTD.'), '*'): [_wrap_pfl],
+    (_norm_key('Norp Knit Industries Ltd.'), '*'): [_wrap_norp, _wrap_pfl],
+    (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Kate Spade')): [_wrap_ventura],
+    (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Michael Kors')): [_wrap_ventura],
+    (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Coach')): [_wrap_ventura],
+    (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Le Sportsac')): [_wrap_ventura],
+    (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Vera Bradley')): [_wrap_ventura],
+}
+
+
+def _get_extractor_chain(customer_name, buyer_name):
+    """Customer+Buyer অনুযায়ী সঠিক extractor-চেইন বের করে। REGISTRY-তে
+    নির্দিষ্ট (customer, buyer) এন্ট্রি না থাকলে ওই কাস্টমারের '*'
+    (যেকোনো বায়ার) এন্ট্রি চেক করা হয়; সেটাও না থাকলে সবার শেষে AEO-স্টাইল
+    জেনেরিক ফলব্যাক ব্যবহার হয় (নতুন/এখনো-রেজিস্টার-না-করা কাস্টমারের জন্য)।"""
+    c = _norm_key(customer_name)
+    b = _norm_key(buyer_name)
+    if (c, b) in REGISTRY:
+        return REGISTRY[(c, b)]
+    if (c, '*') in REGISTRY:
+        return REGISTRY[(c, '*')]
+    return [_wrap_aeo]
+
+
+def combine_booking_excels(files, item_name_override='Master Carton', manual_ply='',
+                            buyer_name='', customer_name=''):
     """files: [(file_stream, filename), ...] — আপলোড হওয়া ক্রম অনুযায়ী।
     প্রতিটা ফাইল থেকে ডাটা নিয়ে ক্রমানুসারে (প্রথম ফাইলের ঠিক নিচেই পরের
     ফাইলের ডাটা) একটাই কম্বাইনড লিস্টে জোড়া লাগিয়ে দেয়। কোনো একটা ফাইলে
     সমস্যা হলে সেটা স্কিপ হয়ে যায় (বাকিগুলো প্রসেস চলতে থাকে), আর সেই
     এরর মেসেজ আলাদাভাবে রিটার্ন হয় যাতে ইউজারকে জানানো যায়।
 
-    একাধিক এক্সেল ফরম্যাট অটো-ডিটেক্ট করা হয়: প্রথমে Norp Knit-স্টাইল
-    (PID/COLOR হেডার, মাল্টি-শিট, ব্লক-বেসড, প্রতি রো-তে Item Name/Ply
-    নিজে থেকেই ঠিক হয়ে যায়) ট্রাই করা হয়; সেই ফরম্যাট না মিললে AEO-স্টাইল
-    (PO#/STYLE# ফ্ল্যাট টেবিল, Item Name/Ply UI থেকে ম্যানুয়াল) ফলব্যাক
-    হিসেবে ব্যবহার হয়। এতে ইউজারকে আলাদা করে ফরম্যাট বেছে নিতে হয় না।
+    ফরম্যাট বেছে নেওয়া হয় customer_name + buyer_name দিয়ে সরাসরি REGISTRY
+    লুকআপ করে (দেখুন REGISTRY ডিক্ট) — আগের মতো সব ফরম্যাট একটার পর একটা
+    "গেস" করে try করা হয় না। এতে দুই কাস্টমারের ফরম্যাটের মধ্যে ভুলবশত
+    কনফ্লিক্ট/ওভারল্যাপ হওয়ার কোনো সুযোগ থাকে না, আর নতুন কাস্টমার/বায়ার
+    যোগ করাও অনেক নিরাপদ (শুধু REGISTRY-তে একটা এন্ট্রি যোগ করলেই হয়)।
 
     Returns (combined_line_items, file_errors).
     """
+    chain = _get_extractor_chain(customer_name, buyer_name)
     combined = []
     errors = []
     for file_stream, filename in files:
-        try:
-            file_stream.seek(0)
-            items = read_norp_style_excel(file_stream, filename)
-            if items:
-                combined.extend(items)
-                continue
-        except Exception:
-            pass  # Norp-স্টাইল না হলে চুপচাপ পরের ফরম্যাট ট্রাই করা হবে
-
-        try:
-            file_stream.seek(0)
-            items = read_simba_style_excel(file_stream, filename, manual_ply=manual_ply)
-            if items:
-                combined.extend(items)
-                continue
-        except Exception:
-            pass  # Simba-স্টাইল না হলে চুপচাপ পরের ফরম্যাট ট্রাই করা হবে
-
-        try:
-            file_stream.seek(0)
-            items = read_pfl_style_excel(file_stream, filename)
-            if items:
-                combined.extend(items)
-                continue
-        except Exception:
-            pass  # PFL-স্টাইল না হলে চুপচাপ পরের ফরম্যাট ট্রাই করা হবে
-
-        try:
-            file_stream.seek(0)
-            items = read_ventura_style_excel(
-                file_stream, filename, buyer_key=buyer_name,
-                item_name_override=item_name_override, manual_ply=manual_ply)
-            if items:
-                combined.extend(items)
-                continue
-        except Exception:
-            pass  # Ventura-স্টাইল না হলে চুপচাপ AEO-স্টাইল ফলব্যাকে যাওয়া হবে
-
-        try:
-            file_stream.seek(0)
-            items = read_booking_excel(
-                file_stream, filename,
-                item_name_override=item_name_override,
-                manual_ply=manual_ply,
-            )
+        items = None
+        last_error = None
+        for wrapper in chain:
+            try:
+                file_stream.seek(0)
+                result = wrapper(file_stream, filename, item_name_override, manual_ply, buyer_name)
+                if result:
+                    items = result
+                    break
+            except Exception as e:
+                last_error = e
+        if items:
             combined.extend(items)
-        except Exception as e:
-            errors.append(f"{filename}: {str(e)}")
+        else:
+            msg = str(last_error) if last_error else "এই কাস্টমার/বায়ারের জন্য পরিচিত কোনো ফরম্যাট মেলেনি"
+            errors.append(f"{filename}: {msg}")
     return combined, errors

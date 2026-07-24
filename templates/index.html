@@ -482,6 +482,7 @@
 const CUSTOMERS = {{ customers | tojson }};
 const BUYERS = {{ buyers | tojson }};
 const DELIVERY_ADDRESSES = {{ delivery_addresses | tojson }};
+const CUSTOMER_BUYER_MAP = {{ customer_buyer_map | tojson }};
 
 const customerTypeSel = document.getElementById('customer_type');
 
@@ -555,8 +556,8 @@ function setupCombo({ inputId, panelId, clearId, getOptions, onSelect, onUnlock 
 const customerCombo = setupCombo({
   inputId: 'customer_name', panelId: 'customer_panel', clearId: 'customer_clear',
   getOptions: () => CUSTOMERS[customerTypeSel.value] || [],
-  onSelect: (value) => { refreshAddressOptions(value); },
-  onUnlock: () => { addressCombo.unlock(); disableAddressField(true); },
+  onSelect: (value) => { refreshAddressOptions(value); buyerCombo.unlock(); },
+  onUnlock: () => { addressCombo.unlock(); disableAddressField(true); buyerCombo.unlock(); },
 });
 
 const outhouseExcelCard = document.getElementById('outhouseExcelCard');
@@ -625,9 +626,18 @@ customerTypeSel.addEventListener('change', () => {
 });
 
 // --- Buyer combo ---
+// Customer-এর জন্য CUSTOMER_BUYER_MAP-এ নির্দিষ্ট বায়ার-লিস্ট থাকলে শুধু
+// সেগুলোই দেখানো হয় (কনফিউশন/ভুল বায়ার সিলেকশন এড়াতে) — না থাকলে (যেমন
+// PDF-বেসড কাস্টমার, বা এখনো ম্যাপ করা হয়নি) আগের মতোই পুরো গ্লোবাল
+// BUYERS লিস্ট দেখাবে।
+function getBuyerOptionsForSelectedCustomer() {
+  const custName = document.getElementById('customer_name').value.trim();
+  return CUSTOMER_BUYER_MAP[custName] || BUYERS;
+}
+
 const buyerCombo = setupCombo({
   inputId: 'buyer_name', panelId: 'buyer_panel', clearId: 'buyer_clear',
-  getOptions: () => BUYERS,
+  getOptions: getBuyerOptionsForSelectedCustomer,
 });
 
 // --- Primark-এর জন্য স্পেশাল Package Weight সিলেক্টর — Buyer 'Primark' হলেই দেখাবে ---

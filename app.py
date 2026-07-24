@@ -18,7 +18,7 @@ from validators import (
     validate_delivery_address, validate_matches_pdf, values_match_ci,
 )
 from date_logic import get_default_delivery_date, validate_manual_delivery_date, format_delivery_date
-from config import CUSTOMERS, BUYERS, DELIVERY_ADDRESSES, BUYER_ALIASES, CUSTOMER_ALIASES, CARTON_VERIFIED_BUYERS, resolve_alias
+from config import CUSTOMERS, BUYERS, DELIVERY_ADDRESSES, BUYER_ALIASES, CUSTOMER_ALIASES, CARTON_VERIFIED_BUYERS, CUSTOMER_BUYER_MAP, resolve_alias
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20MB
@@ -37,6 +37,7 @@ def autocarton_index():
         customers=CUSTOMERS,
         buyers=BUYERS,
         delivery_addresses=DELIVERY_ADDRESSES,
+        customer_buyer_map=CUSTOMER_BUYER_MAP,
     )
 
 
@@ -457,7 +458,8 @@ def autocarton_process_outhouse_excel():
     file_tuples = [(io.BytesIO(f.read()), f.filename) for f in files]
     try:
         line_items, file_errors = combine_booking_excels(
-            file_tuples, item_name_override=item_name_override, manual_ply=manual_ply)
+            file_tuples, item_name_override=item_name_override, manual_ply=manual_ply,
+            buyer_name=buyer_name, customer_name=customer_name)
     except Exception as e:
         return jsonify({'error': f'এক্সেল ফাইল পড়তে সমস্যা হয়েছে: {str(e)}'}), 422
 
