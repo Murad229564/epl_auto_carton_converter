@@ -36,6 +36,59 @@ def na_if_blank(v):
     return v if v else 'N/A'
 
 
+def _check_top_bottom_coverage(line_items):
+    """কিছু এক্সেল ফরম্যাটে (যেমন Knit Concept LTD.) প্রতিটা normal লাইনের
+    সাথে মূল Excel-এর 'TOP BOTTOM' কলামের raw ভ্যালু ('top_bottom_raw' key-তে)
+    রাখা হয়, আর শিটের শেষের 'TOP/ BOTTOM MEASUREMENT' রো থেকে সাইজ-গ্রুপ
+    ধরে আলাদা 'Top Bottom' লাইন-আইটেম বানানো হয়। কিন্তু যদি কোনো সাইজ
+    (যেমন XS) কোনো গ্রুপেই কভার না থাকে (সোর্স ফাইলে গ্রুপ-ডেফিনিশন
+    মিসিং/অসম্পূর্ণ), সেই সাইজের qty চুপচাপ বাদ পড়ে যায় — কোনো এরর ছাড়াই।
+
+    এই ফাংশন প্রতিটা শিটের (_sheet key ধরে) 'top_bottom_raw'-এর মোট যোগফলের
+    সাথে জেনারেট হওয়া 'Top Bottom' লাইনগুলোর মোট Qty মিলিয়ে দেখে — মিল না
+    থাকলে ওয়ার্নিং দেয়, যাতে ইউজার বুঝতে পারেন কিছু qty মিসিং।
+
+    generic/reusable: 'top_bottom_raw' key যেসব extractor সেট করে না, তাদের
+    জন্য এই চেক কিছুই করবে না (কোনো false-positive warning আসবে না)।"""
+    warnings = []
+    raw_sum_by_sheet = {}
+    tb_sum_by_sheet = {}
+    has_tb_data = False
+
+    for item in line_items:
+        sheet = item.get('_sheet') or ''
+        raw = item.get('top_bottom_raw')
+        if raw not in (None, ''):
+            try:
+                raw_sum_by_sheet[sheet] = raw_sum_by_sheet.get(sheet, 0) + float(raw)
+                has_tb_data = True
+            except (TypeError, ValueError):
+                pass
+        if str(item.get('item_name', '')).strip().lower() == 'top bottom':
+            try:
+                tb_sum_by_sheet[sheet] = tb_sum_by_sheet.get(sheet, 0) + float(item.get('qty') or 0)
+            except (TypeError, ValueError):
+                pass
+
+    if not has_tb_data:
+        return warnings
+
+    for sheet, raw_total in raw_sum_by_sheet.items():
+        tb_total = tb_sum_by_sheet.get(sheet, 0)
+        diff = raw_total - tb_total
+        if abs(diff) > 0.001:
+            label = f"শিট '{sheet}'" if sheet else "একটা শিটে"
+            warnings.append(
+                f"⚠️ Top/Bottom কভারেজ মিসম্যাচ: {label}-এ সোর্স Excel-এর 'TOP BOTTOM' "
+                f"কলামের মোট যোগফল {raw_total:g}, কিন্তু জেনারেট হওয়া 'Top Bottom' "
+                f"লাইনগুলোর মোট Qty মাত্র {tb_total:g} — পার্থক্য {diff:g}। সম্ভবত কোনো একটা "
+                f"সাইজ (যেমন XS) 'TOP/ BOTTOM MEASUREMENT' রো-তে কোনো গ্রুপে কভার হয়নি "
+                f"(সোর্স ফাইলে গ্রুপ-ডেফিনিশন মিসিং), তাই সেই সাইজের qty আউটপুটে যোগ হয়নি — "
+                f"'Full Source Data'/'Raw Data' শীট দেখে ম্যানুয়ালি এই সাইজটা যোগ করে নিন।"
+            )
+    return warnings
+
+
 def validate_line_items(line_items):
     """Returns a list of warning strings for rows missing a MUST-HAVE field.
     Divider / Top Bottom জাতীয় আইটেমের ক্ষেত্রে Height মাস্ট-হ্যাভ না —
@@ -52,6 +105,7 @@ def validate_line_items(line_items):
                 f"Row {i + 1}: '{item.get('item_name')}' আইটেমে সাধারণত Height থাকার কথা না, "
                 f"কিন্তু একটা ভ্যালু পাওয়া গেছে — চেক করুন"
             )
+    warnings.extend(_check_top_bottom_coverage(line_items))
     return warnings
 
 

@@ -33,6 +33,8 @@ CUSTOMERS = {
         "Kenpark Bangladesh (Pvt.) Limited",
         "Regency Three Limited",
         "Ventura (HK) Trading Limited",
+        "Knit Concept LTD.",
+        "Columbia Apparels Limited",
     ],
 }
 
@@ -71,6 +73,8 @@ BUYERS = [
     "Coach",
     "Le Sportsac",
     "Vera Bradley",
+    "SMART BLANKS BD",
+    "GU",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -108,6 +112,8 @@ CARTON_VERIFIED_BUYERS = [
     "Coach",
     "Le Sportsac",
     "Vera Bradley",
+    "SMART BLANKS BD",
+    "GU",
 ]
 
 # ---------------------------------------------------------------------------
@@ -169,6 +175,8 @@ CUSTOMER_BUYER_MAP = {
     'Kenpark Bangladesh (Pvt.) Limited': ['Ralph Lauren'],
     'Regency Three Limited': ['Ralph Lauren'],
     'Ventura (HK) Trading Limited': ['Kate Spade', 'Michael Kors', 'Coach', 'Le Sportsac', 'Vera Bradley'],
+    'Knit Concept LTD.': ['SMART BLANKS BD'],
+    'Columbia Apparels Limited': ['GU'],
 }
 
 BUYER_ALIASES = {
@@ -296,7 +304,13 @@ DELIVERY_ADDRESSES = {
     'Sky Trade Global Limited': ['Unimas Sportswear Ltd.'],
     'Pretty Sweaters Ltd.': ['D & S Pretty Fashion Ltd.'],
     'ISHAYAT FASHIONS LTD': ['Sharmin Fashions Ltd.', 'Sharaf Apparels'],
-    'Columbia Apparels Limited': ['Columbia Garments Limited.'],
+    'Columbia Apparels Limited': [
+        'Columbia Apparels Limited',
+        'Union Sportswear Ltd.',
+        'Columbia Garments Limited.',
+        'Genesis Fashions Ltd',
+        'International Trading Services Ltd.',
+    ],
     'Divine Fabrics Ltd.': ['Divine Fabrics LTD'],
     'Barnali Textile and Printing Industries (Pvt) Ltd.': ['Barnali Textile and Printing (Pvt) Ltd.'],
     'Integra Apparels BD Ltd.': ['TSR APPARELS LTD.', 'Integra Design Ltd'],
@@ -306,6 +320,7 @@ DELIVERY_ADDRESSES = {
     'Everbright Sweater Ltd.': ['Everbright Sweater Ltd.'],
     'Mohsin Knitwears Ltd.': ['MOHSIN KNITWEAS LTD'],
     'Interstoff Apparels Ltd.': ['Interstoff Apparels Ltd.', 'South East Textiles (PVT.) Ltd.', 'Interstoff Clothing Ltd.'],
+    'Knit Concept LTD.': ['Knit Concept LTD.', 'Minar Industries Ltd.'],
 }
 
 # ---------------------------------------------------------------------------

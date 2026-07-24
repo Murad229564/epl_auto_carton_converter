@@ -501,6 +501,13 @@ def autocarton_process_outhouse_excel():
 
     combined_label = '_'.join(sorted({str(it.get('po_no', '')) for it in line_items if it.get('po_no')}))[:60]
     base_name = f"{customer_name}_{buyer_name}_{combined_label}_OUTHOUSE".replace(' ', '_')
+    # কিছু নতুন ফরম্যাটে (যেমন Knit Concept LTD.) po_no-এর ভেতর '/' থাকে
+    # (যেমন '1401/BLACK') — Windows-এ ফাইলনেম/পাথে '/' বা '\' থাকলে সেটা
+    # ফোল্ডার-সেপারেটর হিসেবে ধরে নিয়ে tempfile.TemporaryDirectory-এর
+    # ভেতরে অস্তিত্বহীন সাব-ফোল্ডার বানানোর চেষ্টা হয় (FileNotFoundError:
+    # No such file or directory) — তাই এখানেই (kenpark রুটের মতো) illegal
+    # ফাইলনেম ক্যারেক্টারগুলো '-' দিয়ে বদলে দেওয়া হচ্ছে।
+    base_name = re.sub(r'[\\/:*?"<>|]', '-', base_name)
 
     try:
         with tempfile.TemporaryDirectory() as tmpdir:

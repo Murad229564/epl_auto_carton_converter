@@ -10,6 +10,8 @@ from norp_extractor import read_norp_style_excel
 from simba_extractor import read_simba_style_excel
 from pfl_extractor import read_pfl_style_excel
 from ventura_extractor import read_ventura_style_excel
+from knitconcept_extractor import read_knitconcept_style_excel
+from columbia_extractor import read_columbia_style_excel
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -361,6 +363,16 @@ def _wrap_ventura(file_stream, filename, item_name_override, manual_ply, buyer_n
         item_name_override=item_name_override, manual_ply=manual_ply)
 
 
+def _wrap_knitconcept(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_knitconcept_style_excel(file_stream, filename, manual_ply=manual_ply)
+
+
+def _wrap_columbia(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_columbia_style_excel(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
+
+
 def _wrap_aeo(file_stream, filename, item_name_override, manual_ply, buyer_name):
     return read_booking_excel(
         file_stream, filename,
@@ -397,6 +409,8 @@ REGISTRY = {
     (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Coach')): [_wrap_ventura],
     (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Le Sportsac')): [_wrap_ventura],
     (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Vera Bradley')): [_wrap_ventura],
+    (_norm_key('Knit Concept LTD.'), '*'): [_wrap_knitconcept],
+    (_norm_key('Columbia Apparels Limited'), _norm_key('GU')): [_wrap_columbia],
 }
 
 
