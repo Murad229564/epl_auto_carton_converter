@@ -492,12 +492,99 @@ def autocarton_process_outhouse_excel():
             f"⚠️ '{buyer_name}' buyer-এর OUT-HOUSE Excel ফরম্যাট এখনো নির্দিষ্টভাবে "
             f"যাচাই করা হয়নি — আউটপুট ভালোভাবে চেক করে নিন।"
         )
+        
+    separate_output = request.form.get('separate_output', '').strip().lower() in ('1', 'true', 'on', 'yes')
+
+    # কম্বাইনড মোডে (একটাই আউটপুট) একাধিক ফাইল থেকে ভিন্ন ভিন্ন PO/Ship To
+    # মিশিয়ে হেডারে বসানো ঠিক না — তাই এই অটো-ফিল শুধু তখনই হবে যখন
+    # আপলোড করা সব রো একটাই সোর্স ফাইল থেকে এসেছে।
+    if not po_number_override and buyer_name.strip().upper() == 'GU' and not separate_output:
+        source_files = {it.get('_source_file') for it in line_items if it.get('_source_file')}
+        if len(source_files) <= 1:
+            extracted_po_numbers = sorted({
+                str(it.get('po_no', '')).strip() for it in line_items
+                if str(it.get('po_no', '')).strip()
+            })
+            if len(extracted_po_numbers) == 1:
+                po_number_override = extracted_po_numbers[0]
+        else:
+            warnings.append(
+                "⚠️ একাধিক ফাইল থেকে ভিন্ন ভিন্ন PO NO/Ship To পাওয়া গেছে — একটাই কম্বাইনড Excel-এর "
+                "হেডারে এগুলো মেশানো ঠিক না, তাই PO Number ফাঁকা/N/A রাখা হয়েছে (প্রতিটা রো-তে অবশ্য "
+                "নিজের সঠিক PO NO/Ship To ঠিকই আছে)। আলাদা আলাদা PO প্রতিটা ফাইলে চাইলে 'প্রতিটা ফাইল "
+                "আলাদা Excel হিসেবে ডাউনলোড করুন' চেকবক্সটা ব্যবহার করুন।"
+            )
 
     header_info = {
         'po_number': po_number_override or '',
         'customer': customer_name,
         'buyer': buyer_name,
     }
+    
+
+    if separate_output:
+        groups, order = {}, []
+        for item in line_items:
+            key = item.get('_source_file') or 'Unknown'
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(item)
+
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                import zipfile
+                zip_path = os.path.join(tmpdir, 'AutoCarton_Outputs.zip')
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    for src_name in order:
+                        group_items = groups[src_name]
+                        group_warnings = validate_line_items(group_items)
+                        if buyer_name not in CARTON_VERIFIED_BUYERS:
+                            group_warnings.append(
+                                f"⚠️ '{buyer_name}' buyer-এর OUT-HOUSE Excel ফরম্যাট এখনো "
+                                f"নির্দিষ্টভাবে যাচাই করা হয়নি — আউটপুট ভালোভাবে চেক করে নিন।"
+                            )
+
+                        # এই ফাইলের (group) নিজের PO NO/Ship To — user manual override
+                        # দিলে সেটাই সব ফাইলে বসবে, না দিলে GU buyer-এর জন্য প্রতিটা
+                        # ফাইলের নিজের ডাটা থেকেই আলাদাভাবে বের করা হবে।
+                        group_po = po_number_override
+                        if not group_po and buyer_name.strip().upper() == 'GU':
+                            group_po_numbers = sorted({
+                                str(it.get('po_no', '')).strip() for it in group_items
+                                if str(it.get('po_no', '')).strip()
+                            })
+                            if len(group_po_numbers) == 1:
+                                group_po = group_po_numbers[0]
+
+                        out_name = re.sub(
+                            r'[\\/:*?"<>|]', '-',
+                            f"{os.path.splitext(src_name)[0]}_Output.xlsx"
+                        )
+                        out_path = os.path.join(tmpdir, out_name)
+                        build_combined_excel(
+                            group_items, header_info, out_path, profile='OUT-HOUSE',
+                            customer_override=customer_name or None,
+                            buyer_override=buyer_name or None,
+                            po_override=group_po or None,
+                            delivery_date=delivery_date_final,
+                            delivery_address=delivery_address,
+                            warnings=group_warnings,
+                        )
+                        zf.write(out_path, arcname=out_name)
+                with open(zip_path, 'rb') as f:
+                    zip_bytes = f.read()
+        except Exception as e:
+            return jsonify({'error': f'Zip ফাইল বানাতে সমস্যা হয়েছে: {str(e)}'}), 500
+
+        buf = io.BytesIO(zip_bytes)
+        response = send_file(
+            buf, as_attachment=True, download_name='AutoCarton_Outputs.zip',
+            mimetype='application/zip',
+        )
+        response.headers['Content-Length'] = str(len(zip_bytes))
+        response.headers['X-File-Count'] = str(len(files))
+        return response
 
     combined_label = '_'.join(sorted({str(it.get('po_no', '')) for it in line_items if it.get('po_no')}))[:60]
     base_name = f"{customer_name}_{buyer_name}_{combined_label}_OUTHOUSE".replace(' ', '_')

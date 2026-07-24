@@ -16,7 +16,7 @@ REQUIRED_FIELDS = ['item_name', 'ewo_no', 'style_no', 'length', 'width', 'height
 # এই আইটেমগুলোতে সাধারণত Height থাকে না (Divider, Top Bottom) —
 # তাই এগুলোর ক্ষেত্রে Height মিসিং থাকলে warning দেওয়া হবে না,
 # বরং Height-এ ভ্যালু পাওয়া গেলে (যেটা হওয়ার কথা না) warning দেওয়া হবে।
-HEIGHT_EXEMPT_KEYWORDS = ['divider', 'top bottom', 'top-bottom', 'top/bottom', 'cover top']
+HEIGHT_EXEMPT_KEYWORDS = ['divider', 'top bottom', 'top-bottom', 'top/bottom', 'cover top', 'top']
 
 
 def is_height_exempt(item_name):

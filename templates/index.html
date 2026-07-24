@@ -465,6 +465,11 @@
         <p class="fname" id="excelFileNames"></p>
         <input type="file" id="excelFileInput" accept=".xls,.xlsx" multiple>
       </div>
+
+      <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-weight:400;font-size:12.5px;cursor:pointer;">
+        <input type="checkbox" id="outhouse_separate_output"> প্রতিটা ফাইল আলাদা Excel হিসেবে (Zip-এ) ডাউনলোড করুন
+      </label>
+
       <button type="button" id="excelSubmitBtn" style="margin-top:14px;">Excel ফাইলগুলো Process করুন</button>
       <div class="status" id="excelStatusMsg"></div>
     </div>
@@ -1095,6 +1100,7 @@ excelSubmitBtn.addEventListener('click', async () => {
   formData.append('delivery_mode', document.querySelector('input[name="delivery_mode"]:checked').value);
   formData.append('delivery_date', document.getElementById('delivery_date').value || '');
   formData.append('delivery_address', addressInput.value.trim());
+  formData.append('separate_output', document.getElementById('outhouse_separate_output').checked ? '1' : '');
 
   excelSubmitBtn.disabled = true;
   excelSubmitBtn.innerHTML = '<span class="spinner"></span>Processing...';
