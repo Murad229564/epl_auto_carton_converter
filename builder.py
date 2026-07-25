@@ -142,7 +142,20 @@ def _strip_external_links(wb):
     except Exception:
         pass
 
-
+def _neutralize_accidental_formulas(wb):
+    """এই ওয়ার্কবুকের কোনো সেলেই সত্যিকারের ফর্মুলা থাকার কথা না — এখানে শুধু
+    ডাটা বসানো হয়। কিন্তু সোর্স Excel/PDF থেকে আসা কোনো ভ্যালু '='/'+'/'-'/'@'
+    দিয়ে শুরু হলে openpyxl সেটাকে অটোমেটিক ফর্মুলা ধরে নেয় (data_type='f') —
+    যেটা বৈধ ফর্মুলা সিনট্যাক্স না হওয়ায় Excel ফাইলটাকে corrupted ধরে নিয়ে
+    'repair' prompt দেখায় এবং ওই ডাটা মুছে ফেলে। তাই সেভ করার ঠিক আগে পুরো
+    ওয়ার্কবুক স্ক্যান করে এমন কোনো সেল পেলে সেটাকে আবার প্লেইন টেক্সট
+    হিসেবে ফিরিয়ে দেওয়া হচ্ছে।"""
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for cell in row:
+                if cell.data_type == 'f':
+                    cell.data_type = 's'
+                    
 def _matches_u_divider_measurement(length, width):
     """MARKS & SPENCER SCM LTD.-এর জন্য একটা স্পেশাল বিজনেস রুল: Length/Width
     এই দুটো নির্দিষ্ট কম্বিনেশনের একটার সাথে মিললে Item Name 'U Divider' হবে
@@ -323,4 +336,5 @@ def build_combined_excel(line_items, header_info, out_path, profile='IN-HOUSE',
     wb.active = 0  # Excel খুললে যেন Sheet1 (Mapped Template) সবার আগে দেখায়
     _add_full_source_dump_sheet(wb, full_dump)
 
+    _neutralize_accidental_formulas(wb)
     wb.save(out_path)
