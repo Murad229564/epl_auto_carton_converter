@@ -497,8 +497,10 @@ def autocarton_process_outhouse_excel():
 
     # কম্বাইনড মোডে (একটাই আউটপুট) একাধিক ফাইল থেকে ভিন্ন ভিন্ন PO/Ship To
     # মিশিয়ে হেডারে বসানো ঠিক না — তাই এই অটো-ফিল শুধু তখনই হবে যখন
-    # আপলোড করা সব রো একটাই সোর্স ফাইল থেকে এসেছে।
-    if not po_number_override and buyer_name.strip().upper() == 'GU' and not separate_output:
+    # আপলোড করা সব রো একটাই সোর্স ফাইল থেকে এসেছে। আগে এটা শুধু GU buyer-এর
+    # জন্যই হতো — এখন যেকোনো buyer-এর ক্ষেত্রেই হবে, যাতে PO ফিল্ড ফাঁকা
+    # রাখলে ফাইলের ভেতরের PO No-ই অটো টেমপ্লেটের PO Number-এ বসে।
+    if not po_number_override and not separate_output:
         source_files = {it.get('_source_file') for it in line_items if it.get('_source_file')}
         if len(source_files) <= 1:
             extracted_po_numbers = sorted({
@@ -546,10 +548,11 @@ def autocarton_process_outhouse_excel():
                             )
 
                         # এই ফাইলের (group) নিজের PO NO/Ship To — user manual override
-                        # দিলে সেটাই সব ফাইলে বসবে, না দিলে GU buyer-এর জন্য প্রতিটা
-                        # ফাইলের নিজের ডাটা থেকেই আলাদাভাবে বের করা হবে।
+                        # দিলে সেটাই সব ফাইলে বসবে, না দিলে প্রতিটা ফাইলের নিজের ডাটা
+                        # থেকেই আলাদাভাবে বের করা হবে (আগে এটা শুধু GU buyer-এর জন্যই
+                        # হতো, এখন যেকোনো buyer-এর ক্ষেত্রেই হবে)।
                         group_po = po_number_override
-                        if not group_po and buyer_name.strip().upper() == 'GU':
+                        if not group_po:
                             group_po_numbers = sorted({
                                 str(it.get('po_no', '')).strip() for it in group_items
                                 if str(it.get('po_no', '')).strip()

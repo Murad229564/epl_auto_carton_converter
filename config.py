@@ -176,7 +176,7 @@ CUSTOMER_BUYER_MAP = {
     'Regency Three Limited': ['Ralph Lauren'],
     'Ventura (HK) Trading Limited': ['Kate Spade', 'Michael Kors', 'Coach', 'Le Sportsac', 'Vera Bradley'],
     'Knit Concept LTD.': ['SMART BLANKS BD'],
-    'Columbia Apparels Limited': ['GU'],
+    'Columbia Apparels Limited': ['GU', 'Target Australia'],
 }
 
 BUYER_ALIASES = {

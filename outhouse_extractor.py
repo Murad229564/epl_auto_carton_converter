@@ -12,6 +12,7 @@ from pfl_extractor import read_pfl_style_excel
 from ventura_extractor import read_ventura_style_excel
 from knitconcept_extractor import read_knitconcept_style_excel
 from columbia_extractor import read_columbia_style_excel
+from columbia_target_australia_extractor import read_columbia_target_australia_style_excel
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -373,6 +374,12 @@ def _wrap_columbia(file_stream, filename, item_name_override, manual_ply, buyer_
         item_name_override=item_name_override, manual_ply=manual_ply)
 
 
+def _wrap_columbia_target_australia(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_columbia_target_australia_style_excel(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
+
+
 def _wrap_aeo(file_stream, filename, item_name_override, manual_ply, buyer_name):
     return read_booking_excel(
         file_stream, filename,
@@ -395,6 +402,10 @@ def _wrap_aeo(file_stream, filename, item_name_override, manual_ply, buyer_name)
 # বায়ার অনুযায়ী ফরম্যাট আলাদা: Macy -> norp-স্টাইল এক্সেল, Kohl`s ->
 # pfl-স্টাইল এক্সেল। তাই দুই কাস্টমারের ক্ষেত্রেই একই বায়ার-ওয়াইজ ম্যাপিং।
 #
+# Columbia Apparels Limited-এর ক্ষেত্রেও একই কারণে দুইটা আলাদা এন্ট্রি:
+# GU -> columbia-স্টাইল এক্সেল, Target Australia -> সম্পূর্ণ ভিন্ন লেআউটের
+# columbia_target_australia-স্টাইল এক্সেল।
+#
 # নতুন কাস্টমার/বায়ার যোগ করতে হলে এখানে শুধু একটা লাইন যোগ করলেই হবে —
 # বাকি কোনো কোড বদলানোর দরকার নেই।
 # ---------------------------------------------------------------------------
@@ -411,6 +422,7 @@ REGISTRY = {
     (_norm_key('Ventura (HK) Trading Limited'), _norm_key('Vera Bradley')): [_wrap_ventura],
     (_norm_key('Knit Concept LTD.'), '*'): [_wrap_knitconcept],
     (_norm_key('Columbia Apparels Limited'), _norm_key('GU')): [_wrap_columbia],
+    (_norm_key('Columbia Apparels Limited'), _norm_key('Target Australia')): [_wrap_columbia_target_australia],
 }
 
 
