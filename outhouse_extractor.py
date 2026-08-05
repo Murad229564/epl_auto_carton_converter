@@ -13,6 +13,7 @@ from ventura_extractor import read_ventura_style_excel
 from knitconcept_extractor import read_knitconcept_style_excel
 from columbia_extractor import read_columbia_style_excel
 from columbia_target_australia_extractor import read_columbia_target_australia_style_excel
+from amigo_uniqlo_extractor import combine_amigo_booking_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -408,6 +409,10 @@ def _wrap_aeo(file_stream, filename, item_name_override, manual_ply, buyer_name)
 #
 # নতুন কাস্টমার/বায়ার যোগ করতে হলে এখানে শুধু একটা লাইন যোগ করলেই হবে —
 # বাকি কোনো কোড বদলানোর দরকার নেই।
+#
+# ব্যতিক্রম: Amigo Bangladesh Ltd (Uniqlo) এই REGISTRY-তে নেই — সেটা
+# BATCH_REGISTRY-তে আলাদাভাবে হ্যান্ডল হয় (নিচে দেখুন), কারণ ওটার
+# এক্সট্র্যাক্টর প্রতি-ফাইল wrapper প্যাটার্নে চলে না।
 # ---------------------------------------------------------------------------
 REGISTRY = {
     (_norm_key('Simba Fashions Limited'), '*'): [_wrap_simba],
@@ -423,6 +428,22 @@ REGISTRY = {
     (_norm_key('Knit Concept LTD.'), '*'): [_wrap_knitconcept],
     (_norm_key('Columbia Apparels Limited'), _norm_key('GU')): [_wrap_columbia],
     (_norm_key('Columbia Apparels Limited'), _norm_key('Target Australia')): [_wrap_columbia_target_australia],
+}
+
+
+# ---------------------------------------------------------------------------
+# BATCH_REGISTRY — REGISTRY-এর মতোই (customer, buyer) key দিয়ে buyer-ওয়াইজ
+# স্ট্রিক্ট লুকআপ, কিন্তু এখানে value একটা wrapper না — সরাসরি একটা ফাংশন
+# যেটা সবগুলো আপলোড করা ফাইল (files: [(BytesIO, filename), ...]) একসাথে
+# নিয়ে (line_items, warnings) রিটার্ন করে। এটা তখনই দরকার হয় যখন কোনো
+# ফরম্যাটে একাধিক ফাইলের মধ্যে ক্রস-ফাইল অর্ডারিং/লজিক জরুরি হয় — যেমন
+# Amigo Bangladesh Ltd (Uniqlo): সব ফাইলের Size Breakdown (Master Carton)
+# লাইন আগে বসবে, তারপর সব ফাইলের Indent (Top Bottom/Divider) লাইন সবার
+# শেষে — প্রতিটা ফাইল আলাদাভাবে প্রসেস করে পরে জোড়া লাগালে এই অর্ডারিং
+# ঠিক রাখা যায় না।
+# ---------------------------------------------------------------------------
+BATCH_REGISTRY = {
+    (_norm_key('Amigo Bangladesh Ltd'), _norm_key('Uniqlo')): combine_amigo_booking_files,
 }
 
 
@@ -454,8 +475,18 @@ def combine_booking_excels(files, item_name_override='Master Carton', manual_ply
     কনফ্লিক্ট/ওভারল্যাপ হওয়ার কোনো সুযোগ থাকে না, আর নতুন কাস্টমার/বায়ার
     যোগ করাও অনেক নিরাপদ (শুধু REGISTRY-তে একটা এন্ট্রি যোগ করলেই হয়)।
 
+    আগে BATCH_REGISTRY (দেখুন উপরের কমেন্ট) চেক করা হয় — ম্যাচ পেলে সেই
+    ফাংশনটাই সরাসরি সবগুলো ফাইল দিয়ে কল হয়ে যায় (প্রতি-ফাইল লুপ এড়িয়ে)।
+    এখানেও buyer-ওয়াইজ স্ট্রিক্ট নিয়ম বহাল থাকে — নির্দিষ্ট customer+buyer
+    ম্যাচ না করলে batch পথে যাবে না।
+
     Returns (combined_line_items, file_errors).
     """
+    c = _norm_key(customer_name)
+    b = _norm_key(buyer_name)
+    if (c, b) in BATCH_REGISTRY:
+        return BATCH_REGISTRY[(c, b)](files)
+
     chain = _get_extractor_chain(customer_name, buyer_name)
     combined = []
     errors = []

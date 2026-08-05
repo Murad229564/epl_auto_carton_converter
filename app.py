@@ -421,7 +421,13 @@ def autocarton_process_outhouse_excel():
     """আউট হাউজ Carton — একাধিক বুকিং এক্সেল (.xls/.xlsx) একসাথে আপলোড করে
     একটাই কম্বাইনড Excel টেমপ্লেট বানায়। Customer/Buyer/PO এখানে ম্যানুয়ালি
     ইনপুট দিতে হয় (এক্সেলে এসব হেডার-লেভেল তথ্য PDF-এর মতো পরিষ্কারভাবে
-    থাকে না), শুধু লাইন-আইটেমগুলো ফাইল থেকে বের করে কম্বাইন করা হয়।"""
+    থাকে না), শুধু লাইন-আইটেমগুলো ফাইল থেকে বের করে কম্বাইন করা হয়।
+
+    এই একই রুট Amigo Bangladesh Ltd (Uniqlo)-এর জন্যও ব্যবহার হয় — UI-তে
+    আলাদা কোনো নতুন অপশন যোগ করা হয়নি, Customer/Buyer ড্রপডাউনে Amigo/Uniqlo
+    সিলেক্ট করলেই combine_booking_excels ভেতরে ভেতরে সঠিক (batch-মোড)
+    extractor-এ রুট করে দেয় (দেখুন outhouse_extractor.py-এর BATCH_REGISTRY)।
+    """
     files = request.files.getlist('files')
     files = [f for f in files if f and f.filename]
     if not files:
@@ -484,8 +490,16 @@ def autocarton_process_outhouse_excel():
         return jsonify({'error': msg}), 422
 
     warnings = validate_line_items(line_items)
+    # কিছু extractor (যেমন batch-মোড Amigo) file_errors-এ শুধু "ফাইল স্কিপ
+    # হয়েছে" জাতীয় এরর না, বরং নিজের মতো করে ফরম্যাট করা ব্যবসায়িক-নিয়মের
+    # warning-ও (⚠️ দিয়ে শুরু) রাখতে পারে — সেগুলো যেন ভুলভাবে "এই ফাইলটা
+    # স্কিপ হয়েছে" লেবেল না পায় (আসলে ফাইলটা স্কিপ হয়নি), তাই আগে থেকেই ⚠️
+    # দিয়ে শুরু হওয়া মেসেজ অপরিবর্তিত রাখা হচ্ছে, বাকিগুলোতেই শুধু এই লেবেল বসছে।
     for e in file_errors:
-        warnings.append(f"⚠️ এই ফাইলটা স্কিপ হয়েছে: {e}")
+        if e.strip().startswith('⚠️'):
+            warnings.append(e)
+        else:
+            warnings.append(f"⚠️ এই ফাইলটা স্কিপ হয়েছে: {e}")
 
     if buyer_name not in CARTON_VERIFIED_BUYERS:
         warnings.append(
@@ -497,9 +511,9 @@ def autocarton_process_outhouse_excel():
 
     # কম্বাইনড মোডে (একটাই আউটপুট) একাধিক ফাইল থেকে ভিন্ন ভিন্ন PO/Ship To
     # মিশিয়ে হেডারে বসানো ঠিক না — তাই এই অটো-ফিল শুধু তখনই হবে যখন
-    # আপলোড করা সব রো একটাই সোর্স ফাইল থেকে এসেছে। আগে এটা শুধু GU buyer-এর
-    # জন্যই হতো — এখন যেকোনো buyer-এর ক্ষেত্রেই হবে, যাতে PO ফিল্ড ফাঁকা
-    # রাখলে ফাইলের ভেতরের PO No-ই অটো টেমপ্লেটের PO Number-এ বসে।
+    # আপলোড করা সব রো একটাই সোর্স ফাইল থেকে এসেছে। যেকোনো buyer-এর ক্ষেত্রেই
+    # হবে, যাতে PO ফিল্ড ফাঁকা রাখলে ফাইলের ভেতরের PO No-ই অটো টেমপ্লেটের
+    # PO Number-এ বসে।
     if not po_number_override and not separate_output:
         source_files = {it.get('_source_file') for it in line_items if it.get('_source_file')}
         if len(source_files) <= 1:
@@ -549,8 +563,7 @@ def autocarton_process_outhouse_excel():
 
                         # এই ফাইলের (group) নিজের PO NO/Ship To — user manual override
                         # দিলে সেটাই সব ফাইলে বসবে, না দিলে প্রতিটা ফাইলের নিজের ডাটা
-                        # থেকেই আলাদাভাবে বের করা হবে (আগে এটা শুধু GU buyer-এর জন্যই
-                        # হতো, এখন যেকোনো buyer-এর ক্ষেত্রেই হবে)।
+                        # থেকেই আলাদাভাবে বের করা হবে (যেকোনো buyer-এর ক্ষেত্রেই)।
                         group_po = po_number_override
                         if not group_po:
                             group_po_numbers = sorted({

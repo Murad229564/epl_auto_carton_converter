@@ -35,6 +35,7 @@ CUSTOMERS = {
         "Ventura (HK) Trading Limited",
         "Knit Concept LTD.",
         "Columbia Apparels Limited",
+        "Amigo Bangladesh Ltd",
     ],
 }
 
@@ -75,6 +76,7 @@ BUYERS = [
     "Vera Bradley",
     "SMART BLANKS BD",
     "GU",
+    "Uniqlo",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -114,6 +116,7 @@ CARTON_VERIFIED_BUYERS = [
     "Vera Bradley",
     "SMART BLANKS BD",
     "GU",
+    "Uniqlo",
 ]
 
 # ---------------------------------------------------------------------------
@@ -126,9 +129,9 @@ CARTON_VERIFIED_BUYERS = [
 # Regency — এরা PDF-বেসড, বা এখনো নির্দিষ্ট বায়ার-সেট ঠিক করা হয়নি), তাদের
 # ক্ষেত্রে Buyer ড্রপডাউনে আগের মতোই পুরো গ্লোবাল BUYERS লিস্ট দেখাবে।
 #
-# outhouse_extractor.py-এর REGISTRY-এর সাথে এটা সবসময় মিলিয়ে রাখুন —
-# নতুন কাস্টমার/বায়ার যোগ করলে দুই জায়গাতেই (এখানে + REGISTRY) এন্ট্রি
-# যোগ করতে হবে।
+# outhouse_extractor.py-এর REGISTRY/BATCH_REGISTRY-এর সাথে এটা সবসময়
+# মিলিয়ে রাখুন — নতুন কাস্টমার/বায়ার যোগ করলে দুই জায়গাতেই (এখানে +
+# outhouse_extractor.py) এন্ট্রি যোগ করতে হবে।
 # ---------------------------------------------------------------------------
 _IN_HOUSE_BUYERS = [
     "MARKS & SPENCER SCM LTD.",
@@ -177,6 +180,7 @@ CUSTOMER_BUYER_MAP = {
     'Ventura (HK) Trading Limited': ['Kate Spade', 'Michael Kors', 'Coach', 'Le Sportsac', 'Vera Bradley'],
     'Knit Concept LTD.': ['SMART BLANKS BD'],
     'Columbia Apparels Limited': ['GU', 'Target Australia'],
+    'Amigo Bangladesh Ltd': ['Uniqlo'],
 }
 
 BUYER_ALIASES = {
@@ -224,6 +228,11 @@ def resolve_alias(name, alias_map):
 # Customer-wise Delivery Address — আপনার দেওয়া delivery_place.xlsx থেকে বসানো হয়েছে
 # (Customer name -> Delivery address name(s), ফাইলে যে অর্ডারে ছিল সেই অর্ডারেই)।
 # নতুন সারি যোগ করতে চাইলে শুধু নিচে একটা key/value যোগ করুন, কোথাও কোড বদলাতে হবে না।
+#
+# Amigo Bangladesh Ltd-এর জন্য এখনো এখানে কোনো এন্ট্রি যোগ করা হয়নি (delivery
+# address লিস্ট এখনো দেওয়া হয়নি) — তাই আপাতত validate_delivery_address এই
+# কাস্টমারের জন্য কোনো নির্দিষ্ট address আবশ্যক করবে না। ঠিকানার লিস্ট পেলে
+# এখানে একটা এন্ট্রি যোগ করে দেবেন।
 # ---------------------------------------------------------------------------
 DELIVERY_ADDRESSES = {
     'Renaissance Apparels Limited': ['Renaissance Apparels Limited (RAL)', 'Southern Garments Ltd (SGL)'],
@@ -245,6 +254,7 @@ DELIVERY_ADDRESSES = {
     'Columbia Garments Limited': ['Columbia Apperals Limited'],
     'Shanta Expressions Ltd.': ['Contept Knitting Ltd.'],
     'Creative Designers Ltd.': ['Tunic Apparels Ltd.'],
+    'Amigo Bangladesh Ltd': ['Amigo Bangladesh Ltd'],
     'Young 4 Ever Textiles Limited': ['Young 4 Ever Textiles Ltd'],
     'Kenpark Bangladesh Apparel (Pvt.) Limited': ['Kenpark Bangladesh Apparel (Pvt.) Limited- U-5', 'Kenpark Bangladesh Apparel (Pvt.) Limited- U-2', 'Kenpark Bangladesh Apparel (Pvt.) Limited-U-3', 'Kenpark Bangladesh Apparel (Pvt.) Limited'],
     'Epyllion Knitwears Limited': ['Epyllion Knitwear Limited-Extention (Highway Unit)', 'Epyllion Style Ltd.', 'Dazzling Dresses Ltd.', 'Epyllion Knitwears Ltd.', 'Dekko Knitwears Ltd.', 'Epyllion Style Ltd.-Extension'],
