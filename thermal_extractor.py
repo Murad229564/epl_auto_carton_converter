@@ -24,8 +24,20 @@ def extract_summary_table_thermal(pdf):
     return pd.DataFrame()
 
 
+def _clean_numeric_cell(v):
+    """PDF-এর সরু সাইজ-কলামে বড়/লম্বা সংখ্যা (৩ ডিজিটের বেশি, যেমন 132.00)
+    মাঝপথে লাইন-ব্রেক হয়ে সেলের ভেতরেই দুই টুকরায় ভেঙে যায় (যেমন
+    '132.00' -> '132.0\\n0')। clean() সেই newline-কে স্পেসে বদলে দেয়, ফলে
+    '132.0 0'-এর মতো ভাঙা মান তৈরি হয়, যেটা float() parse করতে ব্যর্থ হয়ে
+    None রিটার্ন করে — এবং পুরো qty-টাই আউটপুট থেকে স্কিপ হয়ে যায়। বৈধ
+    qty/rate ভ্যালুতে কখনো ইচ্ছাকৃত স্পেস থাকে না, তাই এখানে ভেতরের সব
+    হোয়াইটস্পেস মুছে দুই টুকরাকে সরাসরি জোড়া লাগানো হচ্ছে
+    ('132.0' + '0' -> '132.00')।"""
+    return re.sub(r'\s+', '', clean(v))
+
+
 def _to_float(v):
-    v = clean(v).replace(',', '')
+    v = _clean_numeric_cell(v).replace(',', '')
     if not v:
         return None
     try:
@@ -39,6 +51,30 @@ def _norm(s):
     PDF কখনো কখনো সরু কলামে শব্দ মাঝপথে ভেঙে ফেলে (যেমন 'Sticker' -> 'Stick\\ner')
     — এই নরমালাইজেশন সেই সমস্যা এড়িয়ে সঠিক কলামে ম্যাচ করায়।"""
     return re.sub(r'\s+', '', str(s or '')).lower()
+
+
+# সরু কলামে EWO No/Style No/PONo-এর মতো আলফানিউমেরিক কোড মাঝপথে ভেঙে গেলে
+# ভাঙা অংশটুকু প্রায়ই নিজের একটা লাইনে খালি সংখ্যা হয়ে থাকে (যেমন
+# 'STTU078' -> 'STTU0\nn78' -> clean()-এর পর 'STTU0 78')। এই প্যাটার্নটা
+# শুধু তখনই মার্জ করা হয় যখন স্পেসের ডানপাশে পুরোপুরি সংখ্যা থাকে এবং
+# বামপাশে অক্ষর/সংখ্যা দিয়ে শেষ হয় — এতে আসল শব্দ-বিভাজন (যেমন
+# 'STTU078 Asher') অক্ষত থাকে, কারণ 'Asher' পুরোপুরি সংখ্যা না।
+_CODE_SPLIT_DIGIT_RE = re.compile(r'(?<=[A-Za-z0-9])\s+(?=\d+(?:\s|$))')
+
+# এই ফিল্ডগুলো সবসময় কোড/আইডি জাতীয় (স্টাইল/EWO/PO/রেফারেন্স নাম্বার) —
+# তাই এখানে উপরের মার্জ-রুলটা প্রয়োগ করা নিরাপদ। ডেলিভারি অ্যাড্রেসের মতো
+# ফ্রি-টেক্সট ফিল্ডে এটা প্রয়োগ করা হয় না (সংখ্যার আগে বৈধ স্পেস থাকতে পারে,
+# যেমন 'DHAKA-1216, BANGLADESH')।
+_CODE_FIELDS = {
+    'EWO No', 'Style No', 'PONo', 'Sticker Caow', 'Sticker Reference',
+    'PT Caow', 'PT Reference', 'Code / Reference', 'Pre Pack',
+}
+
+
+def _clean_code_field(v):
+    """EWO No/Style No/PONo ইত্যাদি কোড-ফিল্ডের মাঝপথে ভাঙা সংখ্যা জোড়া
+    লাগায় (দেখুন _CODE_SPLIT_DIGIT_RE-এর ডকস্ট্রিং)।"""
+    return _CODE_SPLIT_DIGIT_RE.sub('', clean(v))
 
 
 # 'GS=XS', 'gs = S', 'Size: M' ইত্যাদির মতো যেকোনো ছোট আলফাবেটিক প্রিফিক্স +
@@ -78,6 +114,12 @@ THERMAL_FIELD_MAP = {
     _norm('PO QTY'): 'PO QTY',
     _norm('POQty'): 'PO QTY',
     _norm('Gmt. Color'): 'Gmt. Color',
+    # কিছু বায়ারের PDF-এ 'Gmt. Color'-এর বদলে ডট ছাড়া 'Gmt Color' লেখা থাকে
+    # (যেমন Printing Press-এর PS Tag PDF-এ দেখা গেছে) — _norm() যেহেতু
+    # whitespace-ই শুধু বাদ দেয়, পাংচুয়েশন না, তাই ডট থাকা/না-থাকা আলাদা key
+    # হয়ে যায়। এই এন্ট্রি না থাকলে সেই ফিল্ড canonical হতো না এবং
+    # to_canonical_thermal-এ Color খালি থেকে যেত।
+    _norm('Gmt Color'): 'Gmt. Color',
     _norm('Color'): 'Color',
     _norm('Instruction'): 'Instruction',
     _norm('Country'): 'Country',
@@ -93,6 +135,58 @@ THERMAL_FIELD_MAP = {
 
 def _canonical_field_names(raw_names):
     return [THERMAL_FIELD_MAP.get(_norm(n), n) for n in raw_names]
+
+
+# raw_wide_df-এর যে কলামগুলো মেটা-ফিল্ড (EWO/Style/Color/Delivery ইত্যাদি) —
+# বাকি সব কলামকে "সাইজ/qty কলাম" ধরে নেওয়া হয় qty-mismatch ডায়াগনস্টিকের জন্য।
+_META_COLUMN_NAMES = set(THERMAL_FIELD_MAP.values()) | {'Reference'}
+
+
+def compute_qty_mismatch_warnings(line_items, raw_wide_df, summary_df=None):
+    """দুই ধাপে qty-মিসম্যাচ ধরার চেষ্টা করে, যাতে সাইলেন্টলি কোনো qty হারিয়ে
+    না যায় (ভবিষ্যতে অজানা কোনো নতুন লাইন-ব্রেক/ফরম্যাট প্যাটার্ন এলেও):
+
+    ১) গ্র্যান্ড টোটাল — PDF-এর page0 সামারি টেবিলের POQty-এর যোগফলের সাথে
+       বের করা line_items-এর মোট qty মিলছে কিনা।
+    ২) সেল-লেভেল — raw_wide_df (PO Details, PDF-এ যেভাবে ছিল)-এ কোনো
+       সাইজ-সেলে আসলে একটা ভ্যালু আছে, কিন্তু সেটা সংখ্যা হিসেবে parse করা
+       যায়নি বলে line_items-এ জায়গা পায়নি — সেক্ষেত্রে ঠিক কোন
+       EWO/Style/Color/Size-এ সমস্যা সেটা নির্দিষ্ট করে বলা হয়, যাতে ইউজার
+       PO Details শীট গিয়ে সরাসরি চেক করতে পারেন।
+    """
+    warnings = []
+
+    total_extracted = sum((_to_float(li.get('qty', '')) or 0) for li in line_items)
+    if summary_df is not None and not summary_df.empty:
+        qty_col = next((c for c in summary_df.columns
+                         if _norm(c) in (_norm('POQty'), _norm('PO QTY'))), None)
+        if qty_col:
+            total_pdf = sum((_to_float(v) or 0) for v in summary_df[qty_col])
+            diff = round(total_pdf - total_extracted, 2)
+            if abs(diff) > 0.01:
+                warnings.append(
+                    f"⚠️ মোট Qty মিলছে না — PDF Summary-তে মোট {total_pdf:.2f}, "
+                    f"কিন্তু Excel-এ বসেছে {total_extracted:.2f} (পার্থক্য {diff:+.2f})। "
+                    f"নিচের row-ভিত্তিক বিস্তারিত (যদি থাকে) দেখুন, নাহলে PO Details শীট মিলিয়ে দেখুন।"
+                )
+
+    if raw_wide_df is not None and not raw_wide_df.empty:
+        size_cols = [c for c in raw_wide_df.columns if c not in _META_COLUMN_NAMES]
+        for _, row in raw_wide_df.iterrows():
+            for col in size_cols:
+                raw_val = row.get(col, '')
+                if raw_val is None or str(raw_val).strip() == '':
+                    continue
+                if _to_float(raw_val) is not None:
+                    continue  # ঠিকমতো সংখ্যায় পার্স হয়েছে, সমস্যা নেই
+                ident = (f"EWO {row.get('EWO No', 'N/A')} / Style {row.get('Style No', 'N/A')} / "
+                         f"Color {row.get('Gmt. Color') or row.get('Color') or 'N/A'}")
+                warnings.append(
+                    f"⚠️ {ident} — সাইজ '{col}'-এর ভ্যালু '{raw_val}' সংখ্যা হিসেবে পড়া যায়নি, "
+                    f"এই qty-টা Excel-এ যোগ হয়নি। PO Details শীটে গিয়ে সরাসরি চেক করুন।"
+                )
+
+    return warnings
 
 
 _SUMMARY_ROW_MARKERS = ('pcs wise total', 'pcs wise total qty', 'total', 'total value')
@@ -156,15 +250,12 @@ def extract_detail_rows_thermal(pdf):
     primary_rows = []  # wide-format-এর জন্য: [{'meta': {...}, 'sizes': {label: raw_str}}]
     last_ewo, last_style = '', ''
 
-    def process_data_row(row):
+    def build_meta(row):
         nonlocal last_ewo, last_style
-        if not row:
-            return
-        first_cell = clean(row[0]) if row[0] else ''
-        if first_cell.lower() in _SUMMARY_ROW_MARKERS:
-            return  # সামারি রো — লাইন-আইটেম না
-
-        meta_vals = [clean(v) for v in row[:len(field_names)]]
+        meta_vals = []
+        for i, name in enumerate(field_names):
+            raw_v = row[i] if i < len(row) else ''
+            meta_vals.append(_clean_code_field(raw_v) if name in _CODE_FIELDS else clean(raw_v))
         meta = dict(zip(field_names, meta_vals))
 
         if meta.get('EWO No'):
@@ -177,15 +268,29 @@ def extract_detail_rows_thermal(pdf):
             meta['Style No'] = last_style
 
         meta['Reference'] = meta.get('Pre Pack') or meta.get('Instruction') or meta.get('Code / Reference') or ''
+        return meta
+
+    def process_data_row(row):
+        if not row:
+            return
+        first_cell = clean(row[0]) if row[0] else ''
+        if first_cell.lower() in _SUMMARY_ROW_MARKERS:
+            return  # সামারি রো — লাইন-আইটেম না
+
+        meta = build_meta(row)
 
         if is_wide and size_labels:
             qty_cells = row[split_idx:split_idx + len(size_labels)]
             sizes = {
-                (size_labels[i] or f'Size{i+1}'): (clean(qty_cells[i]) if i < len(qty_cells) else '')
+                (size_labels[i] or f'Size{i+1}'): (_clean_numeric_cell(qty_cells[i]) if i < len(qty_cells) else '')
                 for i in range(len(size_labels))
             }
             primary_rows.append({'meta': meta, 'sizes': sizes})
         else:
+            # FLAT ফরম্যাটে PO QTY-ও একই লাইন-ব্রেক সমস্যায় পড়তে পারে —
+            # raw display (raw_wide_rows)-এও তাই merged/clean ভ্যালুই রাখা হচ্ছে।
+            if 'PO QTY' in meta:
+                meta['PO QTY'] = _clean_numeric_cell(meta['PO QTY'])
             qty = _to_float(meta.get('PO QTY', ''))
             raw_wide_rows.append(dict(meta))
             melted.append({**meta, 'Size': 'N/A', 'Qty': qty})
@@ -242,7 +347,7 @@ def extract_detail_rows_thermal(pdf):
                 for ridx in range(min(n_primary, len(data_rows))):
                     r = data_rows[ridx]
                     for ci, label in enumerate(extra_labels):
-                        val = clean(r[ci]) if ci < len(r) else ''
+                        val = _clean_numeric_cell(r[ci]) if ci < len(r) else ''
                         primary_rows[ridx]['sizes'][label] = val
                 size_labels.extend(extra_labels)
             else:

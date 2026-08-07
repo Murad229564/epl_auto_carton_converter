@@ -13,6 +13,9 @@ from kenpark_extractor import read_kenpark_pdf
 from thermal_extractor import process_pdf_thermal, get_unique_delivery_info_thermal
 from thermal_builder import build_thermal_excel, validate_thermal_line_items
 from thermal_config import THERMAL_BUYERS, THERMAL_BUYER_ALIASES, THERMAL_VERIFIED_BUYERS
+from printing_press_extractor import process_pdf_pp, get_unique_delivery_info_pp
+from printing_press_builder import build_pp_excel, validate_pp_line_items
+from printing_press_config import PRINTING_PRESS_BUYERS, PRINTING_PRESS_BUYER_ALIASES, PRINTING_PRESS_VERIFIED_BUYERS
 from validators import (
     validate_customer, validate_buyer, validate_buyer_in_list, validate_po_number,
     validate_delivery_address, validate_matches_pdf, values_match_ci,
@@ -47,6 +50,16 @@ def thermal_index():
         'thermal.html',
         customers=CUSTOMERS,
         buyers=THERMAL_BUYERS,
+        delivery_addresses=DELIVERY_ADDRESSES,
+    )
+
+
+@app.route('/printing_press')
+def printing_press_index():
+    return render_template(
+        'printing_press.html',
+        customers=CUSTOMERS,
+        buyers=PRINTING_PRESS_BUYERS,
         delivery_addresses=DELIVERY_ADDRESSES,
     )
 
@@ -390,6 +403,198 @@ def thermal_process():
                 delivery_date=delivery_date_final,
                 delivery_address=delivery_address,
                 measurement=measurement,
+                raw_df=raw_df,
+                summary_df=summary_df,
+                warnings=warnings,
+                remark_place=remark_place,
+                remark_address=remark_address,
+            )
+            with open(out_path, 'rb') as f:
+                file_bytes = f.read()
+    except Exception as e:
+        return jsonify({'error': f'Excel ফাইল বানাতে সমস্যা হয়েছে: {str(e)}'}), 500
+
+    if not file_bytes:
+        return jsonify({'error': 'Excel ফাইল খালি তৈরি হয়েছে — আবার চেষ্টা করুন'}), 500
+
+    buf = io.BytesIO(file_bytes)
+    response = send_file(
+        buf,
+        as_attachment=True,
+        download_name=f'{base_name}_Output.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response.headers['Content-Length'] = str(len(file_bytes))
+    response.headers['X-Warning-Count'] = str(len(warnings))
+    return response
+
+
+@app.route('/printing_press/extract_header', methods=['POST'])
+def printing_press_extract_header():
+    """Thermal-এর /thermal/extract_header-এর সাথে হুবহু এক প্যাটার্ন — শুধু
+    এখানে অতিরিক্ত 'item_name'-ও ফেরত পাঠানো হয় (PDF-এর কভার পেজ থেকে
+    ডাইনামিকভাবে পড়া, P.S Tag/Poly Sticker যা-ই হোক), যাতে ফ্রন্টএন্ড সেটাও
+    Item Name ফিল্ডে অটো বসিয়ে দিতে পারে।"""
+    if 'pdf_file' not in request.files:
+        return jsonify({'error': 'PDF ফাইল পাওয়া যায়নি'}), 400
+
+    pdf_file = request.files['pdf_file']
+    if pdf_file.filename == '':
+        return jsonify({'error': 'ফাইল সিলেক্ট করা হয়নি'}), 400
+
+    pdf_bytes_raw = pdf_file.read()
+    try:
+        header_info, line_items, raw_df, summary_df = process_pdf_pp(io.BytesIO(pdf_bytes_raw))
+    except Exception as e:
+        return jsonify({'error': f'PDF থেকে তথ্য বের করতে সমস্যা হয়েছে: {str(e)}'}), 422
+
+    header_info['buyer'] = resolve_alias(header_info.get('buyer', ''), PRINTING_PRESS_BUYER_ALIASES)
+    header_info['customer'] = resolve_alias(header_info.get('customer', ''), CUSTOMER_ALIASES)
+
+    delivery_info = get_unique_delivery_info_pp(raw_df)
+
+    return jsonify({
+        'po_number': header_info.get('po_number', '') or '',
+        'customer': header_info.get('customer', '') or '',
+        'buyer': header_info.get('buyer', '') or '',
+        'item_name': header_info.get('item_name', '') or '',
+        'delivery_places_pdf': delivery_info['delivery_places'],
+        'delivery_addresses_pdf': delivery_info['delivery_addresses'],
+    })
+
+
+@app.route('/printing_press/process', methods=['POST'])
+def printing_press_process():
+    """Thermal-এর /thermal/process-এর সাথে হুবহু এক প্যাটার্ন — পার্থক্য শুধু:
+    - measurement-এর বদলে length/width/height/measurement_unit (আলাদা ফিল্ড)
+    - Item Name PDF থেকে ডাইনামিক (ফিক্সড 'Thermal Sticker'-এর মতো না),
+      item_name ফর্ম-ফিল্ড দিয়ে ওভাররাইড করা যায়।
+    """
+    if 'pdf_file' not in request.files:
+        return jsonify({'error': 'PDF ফাইল পাওয়া যায়নি'}), 400
+
+    pdf_file = request.files['pdf_file']
+    if pdf_file.filename == '':
+        return jsonify({'error': 'ফাইল সিলেক্ট করা হয়নি'}), 400
+
+    customer_type = 'IN-HOUSE'  # Printing Press মডিউলেও আপাতত শুধু IN-HOUSE সাপোর্ট করা হচ্ছে
+    customer_name = request.form.get('customer_name', '').strip()
+    buyer_name = request.form.get('buyer_name', '').strip()
+    po_number_override = request.form.get('po_number', '').strip()
+    item_name_override = request.form.get('item_name', '').strip()
+    delivery_mode = request.form.get('delivery_mode', 'auto').strip()
+    delivery_date_manual = request.form.get('delivery_date', '').strip()
+    delivery_address = request.form.get('delivery_address', '').strip()
+    length = request.form.get('length', '').strip()
+    width = request.form.get('width', '').strip()
+    height = request.form.get('height', '').strip()
+    measurement_unit = request.form.get('measurement_unit', 'CM').strip() or 'CM'
+    remark_place = request.form.get('remark_place', '').strip().lower() in ('1', 'true', 'on', 'yes')
+    remark_address = request.form.get('remark_address', '').strip().lower() in ('1', 'true', 'on', 'yes')
+    force_override = request.form.get('force_override', '').strip().lower() in ('1', 'true', 'on', 'yes')
+
+    buyer_error = validate_buyer_in_list(buyer_name, PRINTING_PRESS_BUYERS)
+    if buyer_error:
+        return jsonify({'error': buyer_error}), 422
+
+    customer_error = validate_customer(customer_type, customer_name)
+    if customer_error:
+        return jsonify({'error': customer_error}), 422
+
+    address_error = validate_delivery_address(customer_name, delivery_address)
+    if address_error:
+        return jsonify({'error': address_error}), 422
+
+    if delivery_mode == 'manual':
+        is_valid, err, parsed_date = validate_manual_delivery_date(delivery_date_manual)
+        if not is_valid:
+            return jsonify({'error': err}), 422
+        delivery_date_final = format_delivery_date(parsed_date)
+    else:
+        delivery_date_final = format_delivery_date(get_default_delivery_date())
+
+    pdf_bytes_raw = pdf_file.read()
+
+    try:
+        header_info, line_items, raw_df, summary_df = process_pdf_pp(io.BytesIO(pdf_bytes_raw))
+    except Exception as e:
+        return jsonify({'error': f'PDF পড়তে সমস্যা হয়েছে: {str(e)}'}), 422
+
+    if not line_items:
+        return jsonify({'error': 'কোনো লাইন-আইটেম পাওয়া যায়নি এই PDF থেকে'}), 422
+
+    header_info['buyer'] = resolve_alias(header_info.get('buyer', ''), PRINTING_PRESS_BUYER_ALIASES)
+    header_info['customer'] = resolve_alias(header_info.get('customer', ''), CUSTOMER_ALIASES)
+
+    po_error = validate_po_number(po_number_override, header_info.get('po_number', ''))
+    if po_error:
+        return jsonify({'error': po_error}), 422
+
+    customer_pdf_error = None if force_override else validate_matches_pdf(
+        'Customer', customer_name, header_info.get('customer', ''))
+    if customer_pdf_error:
+        return jsonify({'error': customer_pdf_error}), 422
+
+    buyer_pdf_error = None if force_override else validate_matches_pdf(
+        'Buyer', buyer_name, header_info.get('buyer', ''))
+    if buyer_pdf_error:
+        return jsonify({'error': buyer_pdf_error}), 422
+
+    warnings = validate_pp_line_items(line_items)
+
+    # buyer সিস্টেমে (মাস্টার লিস্টে) থাকলেই যথেষ্ট প্রসেসিং চালানোর জন্য —
+    # কিন্তু এই buyer-এর Printing Press PDF ফরম্যাট এখনো নির্দিষ্টভাবে যাচাই
+    # করা না থাকলে ব্লক না করে শুধু একটা সতর্কতা যোগ করা হচ্ছে।
+    if buyer_name not in PRINTING_PRESS_VERIFIED_BUYERS:
+        warnings.append(
+            f"⚠️ '{buyer_name}' buyer-এর Printing Press PDF ফরম্যাট এখনো নির্দিষ্টভাবে "
+            f"যাচাই করা হয়নি — আউটপুট (বিশেষ করে সাইজ/কোয়ান্টিটি/রেফারেন্স) "
+            f"ভালোভাবে চেক করে নিন।"
+        )
+
+    if force_override:
+        pdf_customer = header_info.get('customer', '')
+        pdf_buyer = header_info.get('buyer', '')
+        if pdf_customer and not values_match_ci(customer_name, pdf_customer):
+            warnings.append(
+                f"⚠️ FORCE OVERRIDE: Customer ম্যানুয়ালি '{customer_name}' বসানো হয়েছে, "
+                f"কিন্তু PDF-এ ছিল '{pdf_customer}' — দয়া করে যাচাই করুন।"
+            )
+        if pdf_buyer and not values_match_ci(buyer_name, pdf_buyer):
+            warnings.append(
+                f"⚠️ FORCE OVERRIDE: Buyer ম্যানুয়ালি '{buyer_name}' বসানো হয়েছে, "
+                f"কিন্তু PDF-এ ছিল '{pdf_buyer}' — দয়া করে যাচাই করুন।"
+            )
+
+    if not length or not width:
+        warnings.append("Length/Width ফাঁকা রাখা হয়েছে (ইউজার confirm করেছেন) — পরে ম্যানুয়ালি বসাতে হবে।")
+
+    if not item_name_override and not header_info.get('item_name'):
+        warnings.append("Item Name PDF থেকে বের করা যায়নি এবং ম্যানুয়ালিও দেওয়া হয়নি — 'N/A' বসানো হয়েছে, চেক করুন।")
+
+    base_name = os.path.splitext(pdf_file.filename)[0]
+
+    def to_num_or_blank(v):
+        try:
+            return float(v) if v else ''
+        except ValueError:
+            return ''
+
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, f'{base_name}_Output.xlsx')
+            build_pp_excel(
+                line_items, header_info, out_path,
+                customer_override=customer_name or None,
+                buyer_override=buyer_name or None,
+                po_override=po_number_override or None,
+                item_name_override=item_name_override or None,
+                delivery_date=delivery_date_final,
+                delivery_address=delivery_address,
+                length=to_num_or_blank(length),
+                width=to_num_or_blank(width),
+                height=to_num_or_blank(height) if height else 0,
+                measurement_unit=measurement_unit,
                 raw_df=raw_df,
                 summary_df=summary_df,
                 warnings=warnings,

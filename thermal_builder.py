@@ -5,6 +5,8 @@ from openpyxl import load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Font
 
+from thermal_extractor import compute_qty_mismatch_warnings
+
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'template_files', 'template_thermal.xlsx')
 
 # ব্যবহারকারীর স্পষ্ট নির্দেশ অনুযায়ী — Gmt. Color, Gmt. Size, Qty মাস্ট-হ্যাভ।
@@ -71,11 +73,16 @@ def build_thermal_excel(line_items, header_info, out_path,
     - Raw Data   : canonical (মেল্ট করা, প্রতি সাইজ = এক রো) লাইন-আইটেম
     - PO Details : PDF-এ যেভাবে ছিল (wide ফরম্যাট, অরিজিনাল কলাম)
     - PO Summary : PDF-এর page0-এর ST Caow/Rate সামারি টেবিল
-    - Warnings   : মাস্ট-হ্যাভ ফিল্ড মিসিং থাকলে
+    - Warnings   : মাস্ট-হ্যাভ ফিল্ড মিসিং থাকলে + qty-মিসম্যাচ ডায়াগনস্টিক
 
     measurement: ম্যানুয়ালি ইনপুট দেওয়া মেজারমেন্ট — সব রো-তে এক ভ্যালুই বসবে।
     ফাঁকা রাখা হলে (ইউজার confirm করার পর) Measurement কলাম ফাঁকাই থাকবে,
     এটা warning তৈরি করবে না।
+
+    warnings: caller (app.py) থেকে আগে থেকেই কম্পিউট করা কোনো warning লিস্ট
+    থাকলে সেটা পাস করা যায় — এই ফাংশন নিজে থেকেও qty-মিসম্যাচ চেক করে সেটার
+    সাথে যোগ করে দেয় (compute_qty_mismatch_warnings), তাই app.py আলাদাভাবে
+    এটা কল না করলেও এই সেফটি-নেটটা সবসময় সক্রিয় থাকে।
     """
     wb = load_workbook(TEMPLATE_PATH)
     _strip_external_links(wb)
@@ -142,8 +149,11 @@ def build_thermal_excel(line_items, header_info, out_path,
     _write_df_sheet(wb, 'Raw Data', pd.DataFrame(line_items))
     _write_df_sheet(wb, 'PO Details', raw_df)
     _write_df_sheet(wb, 'PO Summary', summary_df)
-    if warnings:
-        _write_df_sheet(wb, 'Warnings', pd.DataFrame({'Warning': warnings}))
+
+    all_warnings = list(warnings) if warnings else []
+    all_warnings += compute_qty_mismatch_warnings(line_items, raw_df, summary_df)
+    if all_warnings:
+        _write_df_sheet(wb, 'Warnings', pd.DataFrame({'Warning': all_warnings}))
 
     wb.active = 0
     wb.save(out_path)
