@@ -15,7 +15,10 @@ from thermal_builder import build_thermal_excel, validate_thermal_line_items
 from thermal_config import THERMAL_BUYERS, THERMAL_BUYER_ALIASES, THERMAL_VERIFIED_BUYERS
 from printing_press_extractor import process_pdf_pp, get_unique_delivery_info_pp
 from printing_press_builder import build_pp_excel, validate_pp_line_items
-from printing_press_config import PRINTING_PRESS_BUYERS, PRINTING_PRESS_BUYER_ALIASES, PRINTING_PRESS_VERIFIED_BUYERS
+from printing_press_config import (
+    PRINTING_PRESS_BUYERS, PRINTING_PRESS_BUYER_ALIASES, PRINTING_PRESS_VERIFIED_BUYERS,
+    PRINTING_PRESS_ITEM_NAME_ALIASES,
+)
 from validators import (
     validate_customer, validate_buyer, validate_buyer_in_list, validate_po_number,
     validate_delivery_address, validate_matches_pdf, values_match_ci,
@@ -450,6 +453,7 @@ def printing_press_extract_header():
 
     header_info['buyer'] = resolve_alias(header_info.get('buyer', ''), PRINTING_PRESS_BUYER_ALIASES)
     header_info['customer'] = resolve_alias(header_info.get('customer', ''), CUSTOMER_ALIASES)
+    header_info['item_name'] = resolve_alias(header_info.get('item_name', ''), PRINTING_PRESS_ITEM_NAME_ALIASES)
 
     delivery_info = get_unique_delivery_info_pp(raw_df)
 
@@ -525,6 +529,9 @@ def printing_press_process():
 
     header_info['buyer'] = resolve_alias(header_info.get('buyer', ''), PRINTING_PRESS_BUYER_ALIASES)
     header_info['customer'] = resolve_alias(header_info.get('customer', ''), CUSTOMER_ALIASES)
+    header_info['item_name'] = resolve_alias(header_info.get('item_name', ''), PRINTING_PRESS_ITEM_NAME_ALIASES)
+    if item_name_override:
+        item_name_override = resolve_alias(item_name_override, PRINTING_PRESS_ITEM_NAME_ALIASES)
 
     po_error = validate_po_number(po_number_override, header_info.get('po_number', ''))
     if po_error:
