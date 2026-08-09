@@ -36,6 +36,7 @@ CUSTOMERS = {
         "Knit Concept LTD.",
         "Columbia Apparels Limited",
         "Amigo Bangladesh Ltd",
+        "Sinha Knit and Denims Limited",
     ],
 }
 
@@ -77,6 +78,7 @@ BUYERS = [
     "SMART BLANKS BD",
     "GU",
     "Uniqlo",
+    "Tata Trent",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -117,6 +119,7 @@ CARTON_VERIFIED_BUYERS = [
     "SMART BLANKS BD",
     "GU",
     "Uniqlo",
+    "Tata Trent",
 ]
 
 # ---------------------------------------------------------------------------
@@ -181,6 +184,7 @@ CUSTOMER_BUYER_MAP = {
     'Knit Concept LTD.': ['SMART BLANKS BD'],
     'Columbia Apparels Limited': ['GU', 'Target Australia'],
     'Amigo Bangladesh Ltd': ['Uniqlo'],
+    'Sinha Knit and Denims Limited': ['Tata Trent'],
 }
 
 BUYER_ALIASES = {
@@ -228,11 +232,6 @@ def resolve_alias(name, alias_map):
 # Customer-wise Delivery Address — আপনার দেওয়া delivery_place.xlsx থেকে বসানো হয়েছে
 # (Customer name -> Delivery address name(s), ফাইলে যে অর্ডারে ছিল সেই অর্ডারেই)।
 # নতুন সারি যোগ করতে চাইলে শুধু নিচে একটা key/value যোগ করুন, কোথাও কোড বদলাতে হবে না।
-#
-# Amigo Bangladesh Ltd-এর জন্য এখনো এখানে কোনো এন্ট্রি যোগ করা হয়নি (delivery
-# address লিস্ট এখনো দেওয়া হয়নি) — তাই আপাতত validate_delivery_address এই
-# কাস্টমারের জন্য কোনো নির্দিষ্ট address আবশ্যক করবে না। ঠিকানার লিস্ট পেলে
-# এখানে একটা এন্ট্রি যোগ করে দেবেন।
 # ---------------------------------------------------------------------------
 DELIVERY_ADDRESSES = {
     'Renaissance Apparels Limited': ['Renaissance Apparels Limited (RAL)', 'Southern Garments Ltd (SGL)'],
@@ -255,6 +254,17 @@ DELIVERY_ADDRESSES = {
     'Shanta Expressions Ltd.': ['Contept Knitting Ltd.'],
     'Creative Designers Ltd.': ['Tunic Apparels Ltd.'],
     'Amigo Bangladesh Ltd': ['Amigo Bangladesh Ltd'],
+    'Sinha Knit and Denims Limited': [
+        'Sinha Knit and Denims Limited',
+        'SINHA KNIT INDUSTRIES',
+        'MHC WEARS (PVT.) LTD.',
+        'Agami Apparels Ltd ( DEKKO )',
+        'Azim & Son (Pvt.) Ltd. Unit-2',
+        'S-21 Apparels Ltd.',
+        'Agami Fashions Limited',
+        'A & A Trousers Ltd.',
+        'Aboni Fashions Ltd.',
+    ],
     'Young 4 Ever Textiles Limited': ['Young 4 Ever Textiles Ltd'],
     'Kenpark Bangladesh Apparel (Pvt.) Limited': ['Kenpark Bangladesh Apparel (Pvt.) Limited- U-5', 'Kenpark Bangladesh Apparel (Pvt.) Limited- U-2', 'Kenpark Bangladesh Apparel (Pvt.) Limited-U-3', 'Kenpark Bangladesh Apparel (Pvt.) Limited'],
     'Epyllion Knitwears Limited': ['Epyllion Knitwear Limited-Extention (Highway Unit)', 'Epyllion Style Ltd.', 'Dazzling Dresses Ltd.', 'Epyllion Knitwears Ltd.', 'Dekko Knitwears Ltd.', 'Epyllion Style Ltd.-Extension'],

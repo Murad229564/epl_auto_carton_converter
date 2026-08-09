@@ -14,6 +14,7 @@ from knitconcept_extractor import read_knitconcept_style_excel
 from columbia_extractor import read_columbia_style_excel
 from columbia_target_australia_extractor import read_columbia_target_australia_style_excel
 from amigo_uniqlo_extractor import combine_amigo_booking_files
+from sinha_tatatrent_extractor import combine_sinha_booking_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -410,9 +411,10 @@ def _wrap_aeo(file_stream, filename, item_name_override, manual_ply, buyer_name)
 # নতুন কাস্টমার/বায়ার যোগ করতে হলে এখানে শুধু একটা লাইন যোগ করলেই হবে —
 # বাকি কোনো কোড বদলানোর দরকার নেই।
 #
-# ব্যতিক্রম: Amigo Bangladesh Ltd (Uniqlo) এই REGISTRY-তে নেই — সেটা
-# BATCH_REGISTRY-তে আলাদাভাবে হ্যান্ডল হয় (নিচে দেখুন), কারণ ওটার
-# এক্সট্র্যাক্টর প্রতি-ফাইল wrapper প্যাটার্নে চলে না।
+# ব্যতিক্রম: Amigo Bangladesh Ltd (Uniqlo) আর Sinha Knit and Denims
+# Limited (Tata Trent) এই REGISTRY-তে নেই — এরা BATCH_REGISTRY-তে
+# আলাদাভাবে হ্যান্ডল হয় (নিচে দেখুন), কারণ এদের এক্সট্র্যাক্টর প্রতি-ফাইল
+# wrapper প্যাটার্নে চলে না (একাধিক ফাইল জুড়ে ক্রস-ফাইল অর্ডারিং লজিক লাগে)।
 # ---------------------------------------------------------------------------
 REGISTRY = {
     (_norm_key('Simba Fashions Limited'), '*'): [_wrap_simba],
@@ -436,14 +438,34 @@ REGISTRY = {
 # স্ট্রিক্ট লুকআপ, কিন্তু এখানে value একটা wrapper না — সরাসরি একটা ফাংশন
 # যেটা সবগুলো আপলোড করা ফাইল (files: [(BytesIO, filename), ...]) একসাথে
 # নিয়ে (line_items, warnings) রিটার্ন করে। এটা তখনই দরকার হয় যখন কোনো
-# ফরম্যাটে একাধিক ফাইলের মধ্যে ক্রস-ফাইল অর্ডারিং/লজিক জরুরি হয় — যেমন
-# Amigo Bangladesh Ltd (Uniqlo): সব ফাইলের Size Breakdown (Master Carton)
-# লাইন আগে বসবে, তারপর সব ফাইলের Indent (Top Bottom/Divider) লাইন সবার
-# শেষে — প্রতিটা ফাইল আলাদাভাবে প্রসেস করে পরে জোড়া লাগালে এই অর্ডারিং
-# ঠিক রাখা যায় না।
+# ফরম্যাটে একাধিক ফাইলের মধ্যে ক্রস-ফাইল অর্ডারিং/লজিক জরুরি হয় — যেমন:
+#   - Amigo Bangladesh Ltd (Uniqlo): সব ফাইলের Size Breakdown (Master
+#     Carton) লাইন আগে বসবে, তারপর সব ফাইলের Indent (Top Bottom/Divider)
+#     লাইন সবার শেষে।
+#   - Sinha Knit and Denims Limited (Tata Trent): একই নিয়মে, সব শিট/ফাইলের
+#     মেইন বুকিং ডাটা আগে, Top Bottom/Divider ট্রেইলার লাইন সবার শেষে।
+# প্রতিটা ফাইল আলাদাভাবে প্রসেস করে পরে জোড়া লাগালে এই অর্ডারিং ঠিক রাখা
+# যায় না, তাই এই ফাংশনগুলোকে সবগুলো ফাইল একসাথেই দেওয়া হয়।
+#
+# uniform কল-সিগনেচার: (files, item_name_override, manual_ply) -> এই তিনটা
+# আর্গুমেন্ট দিয়েই সব batch ফাংশন কল হয়, নিচের ছোট wrapper-গুলো যার যার
+# আসল ফাংশনের সাথে মিলিয়ে নেয় (Amigo-র নিজস্ব ফাংশন item_name/ply নেয় না,
+# তাই ওই wrapper-এ সেগুলো উপেক্ষা করা হয়)।
 # ---------------------------------------------------------------------------
+def _batch_amigo(files, item_name_override='', manual_ply=''):
+    # Amigo-র নিজস্ব ফরম্যাটে Item Name/Ply সবসময় নির্দিষ্ট (Master Carton
+    # / Top Bottom / Divider, extractor নিজেই ঠিক করে) — UI সিলেকশন এখানে
+    # প্রযোজ্য না, তাই ইচ্ছাকৃতভাবে উপেক্ষা করা হচ্ছে।
+    return combine_amigo_booking_files(files)
+
+
+def _batch_sinha(files, item_name_override='', manual_ply=''):
+    return combine_sinha_booking_files(files, item_name_override=item_name_override, manual_ply=manual_ply)
+
+
 BATCH_REGISTRY = {
-    (_norm_key('Amigo Bangladesh Ltd'), _norm_key('Uniqlo')): combine_amigo_booking_files,
+    (_norm_key('Amigo Bangladesh Ltd'), _norm_key('Uniqlo')): _batch_amigo,
+    (_norm_key('Sinha Knit and Denims Limited'), _norm_key('Tata Trent')): _batch_sinha,
 }
 
 
@@ -485,7 +507,7 @@ def combine_booking_excels(files, item_name_override='Master Carton', manual_ply
     c = _norm_key(customer_name)
     b = _norm_key(buyer_name)
     if (c, b) in BATCH_REGISTRY:
-        return BATCH_REGISTRY[(c, b)](files)
+        return BATCH_REGISTRY[(c, b)](files, item_name_override, manual_ply)
 
     chain = _get_extractor_chain(customer_name, buyer_name)
     combined = []
