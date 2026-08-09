@@ -154,6 +154,19 @@ def _find_size_breakdown_header_row(df):
     return None
 
 
+def _find_col_containing(labels, *must_contain):
+    """labels ডিকশনারিতে এমন একটা কলাম খুঁজে বের করে যার normalized label-এ
+    দেওয়া সব সাবস্ট্রিং আছে। একাধিক কলাম মিললে প্রথমটা (labels dict-এর
+    insertion order অনুযায়ী, অর্থাৎ বাম থেকে ডান) রিটার্ন করে। এটা exact-key
+    match-এর চেয়ে বেশি নমনীয় — কাস্টমারের ফাইলে হেডার টেক্সট মাঝেমধ্যে
+    সামান্য বদলায় (যেমন 'Required Carton' vs 'Required CTN' vs
+    'Required Carton Quantity') — এই ফাংশন সবগুলো ভ্যারিয়েন্টই ধরতে পারবে।"""
+    for key, col in labels.items():
+        if all(s in key for s in must_contain):
+            return col
+    return None
+
+
 def _extract_size_breakdown(df, sheet_name):
     """একটা 'SIZE BREAKDOWN' শিট থেকে Master Carton লাইন-আইটেম বের করে।
     রিটার্ন করে (line_items, warnings)।"""
@@ -163,7 +176,14 @@ def _extract_size_breakdown(df, sheet_name):
     header_row, sheet_type, labels = found
 
     po_col = labels.get('pono')
-    qty_col = labels.get('requiredcarton') or labels.get('requiredcartonquantity')
+    # 'Required Carton' / 'Required CTN' / 'Required Carton Quantity' —
+    # কাস্টমারের ফাইলভেদে এই কলামের হেডার টেক্সট একটু একটু বদলায়, তাই
+    # exact-key না ধরে substring-ভিত্তিক flexible ম্যাচ ব্যবহার করা হচ্ছে।
+    qty_col = (
+        _find_col_containing(labels, 'required', 'carton')
+        or _find_col_containing(labels, 'required', 'ctn')
+        or _find_col_containing(labels, 'required')
+    )
     wh_col = labels.get('whcode')
 
     warnings = []
