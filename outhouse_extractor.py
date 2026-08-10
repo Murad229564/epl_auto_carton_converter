@@ -15,6 +15,7 @@ from columbia_extractor import read_columbia_style_excel
 from columbia_target_australia_extractor import read_columbia_target_australia_style_excel
 from amigo_uniqlo_extractor import combine_amigo_booking_files
 from sinha_tatatrent_extractor import combine_sinha_booking_files
+from sterling_target_extractor import combine_sterling_booking_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -411,10 +412,11 @@ def _wrap_aeo(file_stream, filename, item_name_override, manual_ply, buyer_name)
 # নতুন কাস্টমার/বায়ার যোগ করতে হলে এখানে শুধু একটা লাইন যোগ করলেই হবে —
 # বাকি কোনো কোড বদলানোর দরকার নেই।
 #
-# ব্যতিক্রম: Amigo Bangladesh Ltd (Uniqlo) আর Sinha Knit and Denims
-# Limited (Tata Trent) এই REGISTRY-তে নেই — এরা BATCH_REGISTRY-তে
-# আলাদাভাবে হ্যান্ডল হয় (নিচে দেখুন), কারণ এদের এক্সট্র্যাক্টর প্রতি-ফাইল
-# wrapper প্যাটার্নে চলে না (একাধিক ফাইল জুড়ে ক্রস-ফাইল অর্ডারিং লজিক লাগে)।
+# ব্যতিক্রম: Amigo Bangladesh Ltd (Uniqlo), Sinha Knit and Denims Limited
+# (Tata Trent) আর Sterling Styles Limited (Target) এই REGISTRY-তে নেই —
+# এরা BATCH_REGISTRY-তে আলাদাভাবে হ্যান্ডল হয় (নিচে দেখুন), কারণ এদের
+# এক্সট্র্যাক্টর প্রতি-ফাইল wrapper প্যাটার্নে চলে না (একাধিক ফাইল জুড়ে
+# ক্রস-ফাইল অর্ডারিং লজিক লাগে)।
 # ---------------------------------------------------------------------------
 REGISTRY = {
     (_norm_key('Simba Fashions Limited'), '*'): [_wrap_simba],
@@ -444,6 +446,11 @@ REGISTRY = {
 #     লাইন সবার শেষে।
 #   - Sinha Knit and Denims Limited (Tata Trent): একই নিয়মে, সব শিট/ফাইলের
 #     মেইন বুকিং ডাটা আগে, Top Bottom/Divider ট্রেইলার লাইন সবার শেষে।
+#   - Sterling Styles Limited (Target): একই নিয়মে, সব ফাইলের Master
+#     Carton আগে, Divider/Top Bottom (measurement-ওয়াইজ গ্রুপড-সামারি)
+#     সবার শেষে — Item Name/Ply এখানেও সম্পূর্ণ ফাইলের কনটেন্ট থেকেই
+#     ডিটেক্ট হয় (ELASTIC নোট + হেডারের 5/3 Ply উল্লেখ), UI সিলেকশন
+#     প্রযোজ্য না।
 # প্রতিটা ফাইল আলাদাভাবে প্রসেস করে পরে জোড়া লাগালে এই অর্ডারিং ঠিক রাখা
 # যায় না, তাই এই ফাংশনগুলোকে সবগুলো ফাইল একসাথেই দেওয়া হয়।
 #
@@ -463,9 +470,17 @@ def _batch_sinha(files, item_name_override='', manual_ply=''):
     return combine_sinha_booking_files(files, item_name_override=item_name_override, manual_ply=manual_ply)
 
 
+def _batch_sterling(files, item_name_override='', manual_ply=''):
+    # Sterling-এর নিজস্ব ফরম্যাটে Item Name (ELASTIC নোট) আর Ply (5/3,
+    # হেডারেই লেখা) সম্পূর্ণ ফাইলের কনটেন্ট থেকে ডিটেক্ট হয় — UI সিলেকশন
+    # এখানে প্রযোজ্য না, তাই ইচ্ছাকৃতভাবে উপেক্ষা করা হচ্ছে।
+    return combine_sterling_booking_files(files)
+
+
 BATCH_REGISTRY = {
     (_norm_key('Amigo Bangladesh Ltd'), _norm_key('Uniqlo')): _batch_amigo,
     (_norm_key('Sinha Knit and Denims Limited'), _norm_key('Tata Trent')): _batch_sinha,
+    (_norm_key('Sterling Styles Limited'), _norm_key('Target')): _batch_sterling,
 }
 
 

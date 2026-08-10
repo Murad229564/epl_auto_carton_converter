@@ -37,6 +37,7 @@ CUSTOMERS = {
         "Columbia Apparels Limited",
         "Amigo Bangladesh Ltd",
         "Sinha Knit and Denims Limited",
+        "Sterling Styles Limited",
     ],
 }
 
@@ -79,6 +80,7 @@ BUYERS = [
     "GU",
     "Uniqlo",
     "Tata Trent",
+    "Target",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -120,6 +122,7 @@ CARTON_VERIFIED_BUYERS = [
     "GU",
     "Uniqlo",
     "Tata Trent",
+    "Target",
 ]
 
 # ---------------------------------------------------------------------------
@@ -185,6 +188,7 @@ CUSTOMER_BUYER_MAP = {
     'Columbia Apparels Limited': ['GU', 'Target Australia'],
     'Amigo Bangladesh Ltd': ['Uniqlo'],
     'Sinha Knit and Denims Limited': ['Tata Trent'],
+    'Sterling Styles Limited': ['Target'],
 }
 
 BUYER_ALIASES = {
@@ -237,7 +241,15 @@ DELIVERY_ADDRESSES = {
     'Renaissance Apparels Limited': ['Renaissance Apparels Limited (RAL)', 'Southern Garments Ltd (SGL)'],
     'SQ Celcius Limited': ['SQ Celcius Limited (Unit-2)'],
     'Ventura (HK) Trading Limited': ['Ventura Latherware Mfy. (BD) Ltd.'],
-    'Sterling Styles Limited': ['Sterling Styles Ltd.-Factory', 'Aspire Garments Limited', 'TECH MAX LIMITED'],
+    'Sterling Styles Limited': [
+        'Sterling Styles Ltd.-Head Office',
+        'Sterling Styles Ltd.-Factory',
+        'Simba Fashion Limited',
+        'Heng Tong Bd Ltd.',
+        'TECH MAX LIMITED',
+        'Aspire Garments Limited',
+        'Silver Style & Design Ltd',
+    ],
     'Four Design Private Limited': ['Four Design (Pvt) Limited'],
     'Genesis Fashions Ltd.': ['Genesis Fashion Ltd.'],
     'Evergreen Products Factory (BD) Limited': ['Uttara EPZ, Nilphamari'],

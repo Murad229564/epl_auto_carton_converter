@@ -259,7 +259,7 @@ def read_pfl_style_excel(file_stream, filename=''):
 
             all_items.append({
                 'item_name': item_name,
-                'ewo_no': po_no,
+                'ewo_no': 'N/A',  # OUT-HOUSE-এ EWO No লাগে না — ইউজার-কনফার্মড, সবসময় N/A
                 'style_no': _clean(style_val),
                 'po_no': po_no,
                 'length': length,
