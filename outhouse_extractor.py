@@ -16,6 +16,7 @@ from columbia_target_australia_extractor import read_columbia_target_australia_s
 from amigo_uniqlo_extractor import combine_amigo_booking_files
 from sinha_tatatrent_extractor import combine_sinha_booking_files
 from sterling_target_extractor import combine_sterling_booking_files
+from everbright_dunnes_extractor import combine_everbright_booking_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -413,10 +414,11 @@ def _wrap_aeo(file_stream, filename, item_name_override, manual_ply, buyer_name)
 # বাকি কোনো কোড বদলানোর দরকার নেই।
 #
 # ব্যতিক্রম: Amigo Bangladesh Ltd (Uniqlo), Sinha Knit and Denims Limited
-# (Tata Trent) আর Sterling Styles Limited (Target) এই REGISTRY-তে নেই —
-# এরা BATCH_REGISTRY-তে আলাদাভাবে হ্যান্ডল হয় (নিচে দেখুন), কারণ এদের
-# এক্সট্র্যাক্টর প্রতি-ফাইল wrapper প্যাটার্নে চলে না (একাধিক ফাইল জুড়ে
-# ক্রস-ফাইল অর্ডারিং লজিক লাগে)।
+# (Tata Trent), Sterling Styles Limited (Target) আর Everbright Sweater
+# Ltd. (Dunnes Stores) এই REGISTRY-তে নেই — এরা BATCH_REGISTRY-তে
+# আলাদাভাবে হ্যান্ডল হয় (নিচে দেখুন), কারণ এদের এক্সট্র্যাক্টর প্রতি-ফাইল
+# wrapper প্যাটার্নে চলে না (একাধিক ফাইল জুড়ে ক্রস-ফাইল অর্ডারিং/হাইডেন-
+# রো-কলাম লজিক লাগে)।
 # ---------------------------------------------------------------------------
 REGISTRY = {
     (_norm_key('Simba Fashions Limited'), '*'): [_wrap_simba],
@@ -451,6 +453,11 @@ REGISTRY = {
 #     সবার শেষে — Item Name/Ply এখানেও সম্পূর্ণ ফাইলের কনটেন্ট থেকেই
 #     ডিটেক্ট হয় (ELASTIC নোট + হেডারের 5/3 Ply উল্লেখ), UI সিলেকশন
 #     প্রযোজ্য না।
+#   - Everbright Sweater Ltd. (Dunnes Stores): এটা উল্টো ধরনের batch —
+#     সামারি/শেষে-বসানো না, বরং প্রতিটা রো-এর Master Carton আর তার
+#     নিজস্ব Divider (Style/PO/Reference/Pack Type-সহ) পাশাপাশি বসে
+#     (Columbia GU-স্টাইল breakdown)। এখানে Excel-এ hidden করা রো/কলামও
+#     বাদ দেওয়া লাগে (অন্যদের ক্ষেত্রে শুধু hidden sheet/column)।
 # প্রতিটা ফাইল আলাদাভাবে প্রসেস করে পরে জোড়া লাগালে এই অর্ডারিং ঠিক রাখা
 # যায় না, তাই এই ফাংশনগুলোকে সবগুলো ফাইল একসাথেই দেওয়া হয়।
 #
@@ -477,10 +484,18 @@ def _batch_sterling(files, item_name_override='', manual_ply=''):
     return combine_sterling_booking_files(files)
 
 
+def _batch_everbright(files, item_name_override='', manual_ply=''):
+    # Master Carton-এর Item Name UI থেকেই আসে (item_name_override
+    # ব্যবহার হয়), কিন্তু Ply এখানে সবসময় ফিক্সড (Master=5, Divider=3),
+    # তাই manual_ply উপেক্ষা করা হচ্ছে।
+    return combine_everbright_booking_files(files, item_name_override=item_name_override)
+
+
 BATCH_REGISTRY = {
     (_norm_key('Amigo Bangladesh Ltd'), _norm_key('Uniqlo')): _batch_amigo,
     (_norm_key('Sinha Knit and Denims Limited'), _norm_key('Tata Trent')): _batch_sinha,
     (_norm_key('Sterling Styles Limited'), _norm_key('Target')): _batch_sterling,
+    (_norm_key('Everbright Sweater Ltd.'), _norm_key('Dunnes Stores')): _batch_everbright,
 }
 
 

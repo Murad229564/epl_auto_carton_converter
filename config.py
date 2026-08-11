@@ -38,6 +38,7 @@ CUSTOMERS = {
         "Amigo Bangladesh Ltd",
         "Sinha Knit and Denims Limited",
         "Sterling Styles Limited",
+        "Everbright Sweater Ltd.",
     ],
 }
 
@@ -81,6 +82,7 @@ BUYERS = [
     "Uniqlo",
     "Tata Trent",
     "Target",
+    "Dunnes Stores",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -123,6 +125,7 @@ CARTON_VERIFIED_BUYERS = [
     "Uniqlo",
     "Tata Trent",
     "Target",
+    "Dunnes Stores",
 ]
 
 # ---------------------------------------------------------------------------
@@ -189,6 +192,7 @@ CUSTOMER_BUYER_MAP = {
     'Amigo Bangladesh Ltd': ['Uniqlo'],
     'Sinha Knit and Denims Limited': ['Tata Trent'],
     'Sterling Styles Limited': ['Target'],
+    'Everbright Sweater Ltd.': ['Dunnes Stores'],
 }
 
 BUYER_ALIASES = {
@@ -349,7 +353,12 @@ DELIVERY_ADDRESSES = {
     'Toshrifa Industries Limited': ['Tosrifa Industries Ltd.'],
     'Fakir Fashion Limited': ['Fakir Fashion Ltd.'],
     'Triple Apparels Limited': ['Triple Apparels Limited', 'HANDZ CLOTHING  BD LTD.', 'AJ Super Garments Ltd', 'BRICKLAND COMPOSITE LIMITED', 'Kimberly Design', 'EAGLE TEXTILES', 'SHAFI PROCESSING IND LTD', 'JAAS Garments Limited', 'NASSA COMPLEX', 'RUMA IMPORT & EXPORT LTD', 'TEMAKAW FASHION LTD'],
-    'Everbright Sweater Ltd.': ['Everbright Sweater Ltd.'],
+    'Everbright Sweater Ltd.': [
+        'Everbright Sweater Ltd.',
+        'UNICORN SWEAER LTD',
+        'BODY FASHION PVT. LTD',
+        'Gerard Fres ltd',
+    ],
     'Mohsin Knitwears Ltd.': ['MOHSIN KNITWEAS LTD'],
     'Interstoff Apparels Ltd.': ['Interstoff Apparels Ltd.', 'South East Textiles (PVT.) Ltd.', 'Interstoff Clothing Ltd.'],
     'Knit Concept LTD.': ['Knit Concept LTD.', 'Minar Industries Ltd.'],
