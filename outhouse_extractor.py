@@ -17,6 +17,7 @@ from amigo_uniqlo_extractor import combine_amigo_booking_files
 from sinha_tatatrent_extractor import combine_sinha_booking_files
 from sterling_target_extractor import combine_sterling_booking_files
 from everbright_dunnes_extractor import combine_everbright_booking_files
+from intimate_maxdubai_extractor import combine_intimate_booking_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -458,6 +459,13 @@ REGISTRY = {
 #     নিজস্ব Divider (Style/PO/Reference/Pack Type-সহ) পাশাপাশি বসে
 #     (Columbia GU-স্টাইল breakdown)। এখানে Excel-এ hidden করা রো/কলামও
 #     বাদ দেওয়া লাগে (অন্যদের ক্ষেত্রে শুধু hidden sheet/column)।
+#   - Intimate Attire Limited (Max-Dubai): তিন-গ্রুপ অর্ডারিং — সব ফাইলের
+#     সব Master Carton আগে, তারপর সব U Divider, তারপর সব Top Bottom।
+#     Style/PO/Reference শুধু 'Carton' রো-তে থাকে, তাই একই ব্লকের U
+#     Divider/Top Bottom রো-তে forward-fill করে বসানো হয়। 'U Divider'
+#     আইটেমে সত্যিকারের Height থাকে (builder.py-এর HEIGHT_NOT_EXEMPT_
+#     KEYWORDS দেখুন — এটা generic 'Divider'-এর height-exempt নিয়মের
+#     ব্যতিক্রম)।
 # প্রতিটা ফাইল আলাদাভাবে প্রসেস করে পরে জোড়া লাগালে এই অর্ডারিং ঠিক রাখা
 # যায় না, তাই এই ফাংশনগুলোকে সবগুলো ফাইল একসাথেই দেওয়া হয়।
 #
@@ -491,11 +499,18 @@ def _batch_everbright(files, item_name_override='', manual_ply=''):
     return combine_everbright_booking_files(files, item_name_override=item_name_override)
 
 
+def _batch_intimate(files, item_name_override='', manual_ply=''):
+    # Item Name/Ply সম্পূর্ণ ফাইলের Item কলাম থেকেই ডিটেক্ট হয় (Carton/
+    # 2 Leg Divider/Top Bottom) — UI সিলেকশন এখানে প্রযোজ্য না।
+    return combine_intimate_booking_files(files)
+
+
 BATCH_REGISTRY = {
     (_norm_key('Amigo Bangladesh Ltd'), _norm_key('Uniqlo')): _batch_amigo,
     (_norm_key('Sinha Knit and Denims Limited'), _norm_key('Tata Trent')): _batch_sinha,
     (_norm_key('Sterling Styles Limited'), _norm_key('Target')): _batch_sterling,
     (_norm_key('Everbright Sweater Ltd.'), _norm_key('Dunnes Stores')): _batch_everbright,
+    (_norm_key('Intimate Attire Limited'), _norm_key('Max-Dubai')): _batch_intimate,
 }
 
 

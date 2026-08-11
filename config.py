@@ -39,6 +39,7 @@ CUSTOMERS = {
         "Sinha Knit and Denims Limited",
         "Sterling Styles Limited",
         "Everbright Sweater Ltd.",
+        "Intimate Attire Limited",
     ],
 }
 
@@ -83,6 +84,7 @@ BUYERS = [
     "Tata Trent",
     "Target",
     "Dunnes Stores",
+    "Max-Dubai",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -126,6 +128,7 @@ CARTON_VERIFIED_BUYERS = [
     "Tata Trent",
     "Target",
     "Dunnes Stores",
+    "Max-Dubai",
 ]
 
 # ---------------------------------------------------------------------------
@@ -193,6 +196,7 @@ CUSTOMER_BUYER_MAP = {
     'Sinha Knit and Denims Limited': ['Tata Trent'],
     'Sterling Styles Limited': ['Target'],
     'Everbright Sweater Ltd.': ['Dunnes Stores'],
+    'Intimate Attire Limited': ['Max-Dubai'],
 }
 
 BUYER_ALIASES = {
@@ -358,6 +362,10 @@ DELIVERY_ADDRESSES = {
         'UNICORN SWEAER LTD',
         'BODY FASHION PVT. LTD',
         'Gerard Fres ltd',
+    ],
+    'Intimate Attire Limited': [
+        'Intimate Attire Limited',
+        'Mahdeen Sweaters Ltd.',
     ],
     'Mohsin Knitwears Ltd.': ['MOHSIN KNITWEAS LTD'],
     'Interstoff Apparels Ltd.': ['Interstoff Apparels Ltd.', 'South East Textiles (PVT.) Ltd.', 'Interstoff Clothing Ltd.'],

@@ -5,11 +5,12 @@ Everbright Sweater Ltd. — Buyer: Dunnes Stores
 একটা বুকিং-এ ১টা ফাইল, বা একসাথে একাধিক (৪-৫টা) ফাইল আসতে পারে। একটা
 ফাইলে একাধিক শিট থাকতে পারে (প্রতিটা শিট থেকেই ডাটা নেওয়া হয়)।
 
-⚠️ এই ফরম্যাট Amigo/Sinha/Sterling-এর মতো "সামারি করে ফাইলের শেষে" না —
-বরং Columbia (GU buyer)-স্টাইল breakdown-ওয়াইজ: প্রতিটা রো-তে Master
-Carton এবং (থাকলে) তার নিজস্ব Divider — দুটোই আলাদা লাইন-আইটেম হিসেবে,
-সেই রো-এর নিজস্ব Style/PO(Item Description)/Reference(Color)/Pack Type
-(Gmt Size) সহ, একই জায়গায় (একটার পরে একটা) বসে।
+⚠️ এই ফরম্যাটে প্রতিটা রো-এর Master Carton এবং (থাকলে) তার নিজস্ব Divider
+দুটোই আলাদা লাইন-আইটেম, সেই রো-এর নিজস্ব Style/PO(Item Description)/
+Reference(Color)/Pack Type(Gmt Size) সহ — কোনো সামারি/গ্রুপিং হয় না।
+তবে টেমপ্লেট সাজানোর সুবিধার জন্য (ইউজার-কনফার্মড) সব ফাইলের সব Master
+Carton লাইন আগে, তারপর সব ফাইলের সব Divider লাইন সবার শেষে বসে — Amigo/
+Sinha/Sterling-এর মতোই অর্ডারিং কনভেনশন, শুধু ডাটা গ্রুপ/সামারি হয় না।
 
 কলাম-লেআউট ফাইল-ভেদে একটু শিফট হয় (কখনো 'Pack Number' কলাম থাকে, কখনো
 থাকে না; হেডার টেক্সট কখনো 'CARTON Order Qty', কখনো শুধু 'Order Qty') —
@@ -168,10 +169,11 @@ def _find_header_row(rows, max_scan=25):
 
 def read_everbright_booking_sheet(rows, sheet_name, hidden_rows, hidden_cols, item_name_override=''):
     """একটা শিটের rows (list-of-lists) থেকে লাইন-আইটেম বের করে। রিটার্ন
-    করে (line_items, warnings)।"""
+    করে (master_items, divider_items, warnings) — দুইটা আলাদা রাখা হচ্ছে
+    যাতে caller সব শিট/ফাইলের Master Carton আগে, Divider পরে বসাতে পারে।"""
     header_row, labels = _find_header_row(rows)
     if header_row is None:
-        return [], []
+        return [], [], []
 
     style_col = labels.get('style')
     desc_col = _find_col(labels, 'itemdescription')
@@ -188,14 +190,15 @@ def read_everbright_booking_sheet(rows, sheet_name, hidden_rows, hidden_cols, it
             tb_qty_col = col
 
     if style_col is None or mc_meas_col is None or mc_qty_col is None:
-        return [], [f"⚠️ শিট '{sheet_name}': Style/Ctn Mmts/Order Qty কলাম পাওয়া যায়নি — স্কিপ করা হয়েছে।"]
+        return [], [], [f"⚠️ শিট '{sheet_name}': Style/Ctn Mmts/Order Qty কলাম পাওয়া যায়নি — স্কিপ করা হয়েছে।"]
 
     # Divider কলাম hidden থাকলে (measurement বা qty যেকোনো একটা), পুরো
     # ডিভাইডার ডাটাই বাদ — ইউজার-কনফার্মড নিয়ম।
     if tb_meas_col is not None and (tb_meas_col in hidden_cols or (tb_qty_col is not None and tb_qty_col in hidden_cols)):
         tb_meas_col = tb_qty_col = None
 
-    items = []
+    master_items = []
+    divider_items = []
     r = header_row + 1
     # হেডারের ঠিক পরের রো-তে (row19-এর মতো) মাঝেমধ্যে দ্বিতীয় সাব-লেবেল
     # রো ('Quantity'/'U.S. Dollars') থাকে, ওটায় কোনো ডাটা-রো লক্ষণ (Style
@@ -222,7 +225,7 @@ def read_everbright_booking_sheet(rows, sheet_name, hidden_rows, hidden_cols, it
         mc_qty_val = row[mc_qty_col] if mc_qty_col < len(row) else None
         if _is_num(mc_qty_val) and (_num(mc_qty_val) or 0) > 0:
             length, width, height = _parse_lwh(_clean(row[mc_meas_col]) if mc_meas_col < len(row) else '')
-            items.append({
+            master_items.append({
                 'item_name': item_name_override or 'Master Carton',
                 'ewo_no': 'N/A',
                 'style_no': style_val,
@@ -248,7 +251,7 @@ def read_everbright_booking_sheet(rows, sheet_name, hidden_rows, hidden_cols, it
             tb_qty_val = row[tb_qty_col] if tb_qty_col < len(row) else None
             if _is_num(tb_qty_val) and (_num(tb_qty_val) or 0) > 0:
                 length, width = _parse_lw(_clean(row[tb_meas_col]) if tb_meas_col < len(row) else '')
-                items.append({
+                divider_items.append({
                     'item_name': 'Divider',
                     'ewo_no': 'N/A',
                     'style_no': style_val,
@@ -272,32 +275,45 @@ def read_everbright_booking_sheet(rows, sheet_name, hidden_rows, hidden_cols, it
 
         r += 1
 
-    return items, []
+    # ইউজার-কনফার্মড অর্ডারিং: সব Master Carton আগে, তারপর সব Divider —
+    # প্রতিটা লাইনের নিজস্ব Style/PO/Reference/Pack Type ডাটা অক্ষুণ্ণ
+    # থাকে (সামারি/গ্রুপিং হয় না, শুধু ক্রম বদলায়)। এই ফাংশন একটা শিটের
+    # জন্য (master_items, divider_items) আলাদাভাবে রিটার্ন করে — পুরো
+    # ফাইল/সব ফাইল জুড়ে ঠিকভাবে অর্ডার করার দায়িত্ব
+    # read_everbright_booking_file/combine_everbright_booking_files-এর
+    # (নাহলে sheet1-এর Divider sheet2-এর Master-এর আগে চলে আসত)।
+    return master_items, divider_items, []
+
+
 
 
 def read_everbright_booking_file(file_stream, filename, item_name_override=''):
     """একটা .xls/.xlsx ফাইলের সব (visible) শিট থেকে ডাটা বের করে।
-    রিটার্ন করে (line_items, warnings)।"""
+    রিটার্ন করে (master_items, divider_items, warnings) — দুইটা আলাদা
+    রাখা হচ্ছে যাতে সব ফাইলের Master Carton আগে, সব ফাইলের Divider পরে
+    বসানো যায় (নাহলে file1-এর Divider file2-এর Master-এর আগে চলে আসত)।"""
     file_stream.seek(0)
     sheets = pd.read_excel(file_stream, sheet_name=None, header=None)
     visible_names = _get_visible_sheet_names(file_stream, filename)
 
-    all_items = []
+    all_master = []
+    all_divider = []
     all_warnings = []
     for idx, (sheet_name, df) in enumerate(sheets.items()):
         if visible_names is not None and sheet_name not in visible_names:
             continue
         hidden_rows, hidden_cols = _get_hidden_rows_cols(file_stream, filename, sheet_name=sheet_name)
-        items, warns = read_everbright_booking_sheet(
+        master_items, divider_items, warns = read_everbright_booking_sheet(
             df.values.tolist(), sheet_name, hidden_rows, hidden_cols,
             item_name_override=item_name_override)
-        all_items.extend(items)
+        all_master.extend(master_items)
+        all_divider.extend(divider_items)
         all_warnings.extend(warns)
 
-    if not all_items:
+    if not all_master and not all_divider:
         all_warnings.append(f"⚠️ '{filename}': কোনো ভ্যালিড (qty>0) লাইন-আইটেম পাওয়া যায়নি।")
 
-    return all_items, all_warnings
+    return all_master, all_divider, all_warnings
 
 
 def combine_everbright_booking_files(files, item_name_override='', manual_ply=''):
@@ -306,15 +322,24 @@ def combine_everbright_booking_files(files, item_name_override='', manual_ply=''
     ফিক্সড: Master Carton=5, Divider=3)। item_name_override ব্যবহার হয়
     শুধু Master Carton-এর Item Name-এর জন্য (Divider সবসময় 'Divider')।
 
-    এই ফরম্যাট Amigo/Sinha/Sterling-এর মতো সামারি-করে-শেষে-বসানো না —
-    প্রতিটা রো-এর Master Carton আর তার নিজস্ব Divider পাশাপাশি (একই
-    ক্রমে) বসে, তাই এখানে আলাদা 'trailer' গ্রুপিং নেই।"""
-    combined = []
+    ইউজার-কনফার্মড অর্ডারিং: সব ফাইলের সব Master Carton আগে, তারপর সব
+    ফাইলের সব Divider সবার শেষে (Amigo/Sinha/Sterling কনভেনশনের মতোই) —
+    তবে এখানে কোনো সামারি/গ্রুপিং হয় না, প্রতিটা Divider লাইন তার নিজস্ব
+    Style/PO/Reference/Pack Type-সহ আলাদা রো হিসেবেই থাকে, শুধু অবস্থান
+    বদলায়।"""
+    all_master = []
+    all_divider = []
     all_warnings = []
     for file_stream, filename in files:
-        items, warns = read_everbright_booking_file(file_stream, filename, item_name_override=item_name_override)
-        for it in items:
+        master_items, divider_items, warns = read_everbright_booking_file(
+            file_stream, filename, item_name_override=item_name_override)
+        for it in master_items:
             it['_source_file'] = filename
-        combined.extend(items)
+        for it in divider_items:
+            it['_source_file'] = filename
+        all_master.extend(master_items)
+        all_divider.extend(divider_items)
         all_warnings.extend(warns)
+
+    combined = all_master + all_divider
     return combined, all_warnings
