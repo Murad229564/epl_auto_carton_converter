@@ -17,10 +17,17 @@ REQUIRED_FIELDS = ['item_name', 'ewo_no', 'style_no', 'length', 'width', 'height
 # তাই এগুলোর ক্ষেত্রে Height মিসিং থাকলে warning দেওয়া হবে না,
 # বরং Height-এ ভ্যালু পাওয়া গেলে (যেটা হওয়ার কথা না) warning দেওয়া হবে।
 HEIGHT_EXEMPT_KEYWORDS = ['divider', 'top bottom', 'top-bottom', 'top/bottom', 'cover top', 'top']
+# 'U Divider' (Intimate Attire Limited / Max-Dubai) generic 'divider' কিওয়ার্ডের
+# সাথে ম্যাচ করে যাবে, কিন্তু এই আইটেমের ক্ষেত্রে Height আসলেই থাকে (২ লেগ
+# ডিভাইডারের নিজস্ব L x W x H) — তাই বাকি সব 'divider' (যাদের height থাকে না)
+# exempt থাকলেও, 'U Divider'-কে স্পষ্টভাবে এই তালিকার বাইরে রাখা হচ্ছে।
+HEIGHT_NOT_EXEMPT_KEYWORDS = ['u divider']
 
 
 def is_height_exempt(item_name):
     name = str(item_name or '').lower()
+    if any(k in name for k in HEIGHT_NOT_EXEMPT_KEYWORDS):
+        return False
     return any(k in name for k in HEIGHT_EXEMPT_KEYWORDS)
 
 
