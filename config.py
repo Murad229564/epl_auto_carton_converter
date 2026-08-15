@@ -40,6 +40,7 @@ CUSTOMERS = {
         "Sterling Styles Limited",
         "Everbright Sweater Ltd.",
         "Intimate Attire Limited",
+        "Innovative Knitex Ltd.",
     ],
 }
 
@@ -85,6 +86,7 @@ BUYERS = [
     "Target",
     "Dunnes Stores",
     "Max-Dubai",
+    "Biscana",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -129,6 +131,7 @@ CARTON_VERIFIED_BUYERS = [
     "Target",
     "Dunnes Stores",
     "Max-Dubai",
+    "Biscana",
 ]
 
 # ---------------------------------------------------------------------------
@@ -197,6 +200,7 @@ CUSTOMER_BUYER_MAP = {
     'Sterling Styles Limited': ['Target'],
     'Everbright Sweater Ltd.': ['Dunnes Stores'],
     'Intimate Attire Limited': ['Max-Dubai'],
+    'Innovative Knitex Ltd.': ['Biscana'],
 }
 
 BUYER_ALIASES = {
@@ -366,6 +370,14 @@ DELIVERY_ADDRESSES = {
     'Intimate Attire Limited': [
         'Intimate Attire Limited',
         'Mahdeen Sweaters Ltd.',
+    ],
+    'Innovative Knitex Ltd.': [
+        'Innovative Knitex Ltd.',
+        'Oishi Design Garments Limited',
+        'Amreen Sweater Limited',
+        'Corona Fashion Limited.',
+        'Innert Fabric & Quilt Limited',
+        'Meek Sweater Limited',
     ],
     'Mohsin Knitwears Ltd.': ['MOHSIN KNITWEAS LTD'],
     'Interstoff Apparels Ltd.': ['Interstoff Apparels Ltd.', 'South East Textiles (PVT.) Ltd.', 'Interstoff Clothing Ltd.'],
