@@ -370,19 +370,6 @@
           <div class="field-err" id="buyer_err">Buyer নাম আবশ্যক — লিস্ট থেকে সিলেক্ট করুন</div>
         </div>
 
-        <div class="field full" id="primarkWeightField" style="display:none;">
-          <label>Primark — Package Weight <span class="req">*</span></label>
-          <div style="display:flex; gap:16px; margin-top:9px;">
-            <label style="font-weight:400; display:flex; align-items:center; gap:5px; cursor:pointer;">
-              <input type="radio" name="primark_weight_class" value="ABOVE 10KG"> ABOVE 10KG
-            </label>
-            <label style="font-weight:400; display:flex; align-items:center; gap:5px; cursor:pointer;">
-              <input type="radio" name="primark_weight_class" value="BELOW 10KG"> BELOW 10KG
-            </label>
-          </div>
-          <div class="hint">Style No-এর সাথে এটা যোগ হয়ে বসবে (যেমন 90627/ABOVE 10KG) — Primark buyer-এর জন্য বাধ্যতামূলক</div>
-        </div>
-
         <div class="field">
           <label>Delivery Date</label>
           <div class="radio-group">
@@ -628,24 +615,7 @@ const buyerCombo = setupCombo({
   getOptions: getBuyerOptionsForSelectedCustomer,
 });
 
-const primarkWeightField = document.getElementById('primarkWeightField');
 const buyerNameInput = document.getElementById('buyer_name');
-
-function isPrimarkBuyer() {
-  return buyerNameInput.value.trim().toLowerCase() === 'primark';
-}
-
-function togglePrimarkWeightField() {
-  primarkWeightField.style.display = isPrimarkBuyer() ? 'block' : 'none';
-}
-
-function getPrimarkWeightClass() {
-  const checked = document.querySelector('input[name="primark_weight_class"]:checked');
-  return checked ? checked.value : '';
-}
-
-buyerNameInput.addEventListener('input', togglePrimarkWeightField);
-buyerNameInput.addEventListener('change', togglePrimarkWeightField);
 
 const addressInput = document.getElementById('delivery_address');
 const addressReqMark = document.getElementById('addr_req_mark');
@@ -815,7 +785,6 @@ async function extractAndAutofill(file) {
     } else if (data.buyer) {
       document.getElementById('buyer_name').value = data.buyer;
     }
-    togglePrimarkWeightField();
 
     if (data.po_number) {
       document.getElementById('po_number').value = data.po_number;
@@ -942,15 +911,10 @@ form.addEventListener('submit', async (e) => {
   const kenparkPdfMode = isKenparkPdfMode();
   const separateOutput = pdfSeparateOutputCheck.checked;
 
-  if (trimsBookingMode && isPrimarkBuyer() && !getPrimarkWeightClass()) {
-    window.alert('Primark buyer-এর জন্য "ABOVE 10KG" বা "BELOW 10KG" সিলেক্ট করা আবশ্যক — অনুগ্রহ করে সিলেক্ট করে আবার Process করুন।');
-    return;
-  }
 
   const formData = new FormData();
   if (trimsBookingMode) {
     for (const f of fileInput.files) formData.append('files', f);
-    formData.append('primark_weight_class', getPrimarkWeightClass());
     // কিছু "টোটালি ভিন্ন" ফরম্যাটে (যেমন IKL/Biscana) Item Name/Ply UI
     // থেকে দরকার হয় — Barnali-স্টাইল ফরম্যাটে extractor এগুলো উপেক্ষা করে।
     formData.append('item_name', 'Master Carton');

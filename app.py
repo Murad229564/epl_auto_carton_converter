@@ -1073,7 +1073,6 @@ def autocarton_process_outhouse_trims_booking_pdf():
     delivery_mode = request.form.get('delivery_mode', 'auto').strip()
     delivery_date_manual = request.form.get('delivery_date', '').strip()
     delivery_address = request.form.get('delivery_address', '').strip()
-    primark_weight_class = request.form.get('primark_weight_class', '').strip()
     item_name_override = request.form.get('item_name', '').strip()
     manual_ply = request.form.get('ply', '').strip()
     separate_output = request.form.get('separate_output', '').strip().lower() in ('1', 'true', 'on', 'yes')
@@ -1086,9 +1085,6 @@ def autocarton_process_outhouse_trims_booking_pdf():
     if buyer_error:
         return jsonify({'error': buyer_error}), 422
 
-    is_primark = buyer_name.strip().lower() == 'primark'
-    if is_primark and primark_weight_class not in ('ABOVE 10KG', 'BELOW 10KG'):
-        return jsonify({'error': "Primark buyer-এর জন্য 'ABOVE 10KG' বা 'BELOW 10KG' সিলেক্ট করা আবশ্যক।"}), 422
 
     address_error = validate_delivery_address(customer_name, delivery_address)
     if address_error:
@@ -1126,13 +1122,6 @@ def autocarton_process_outhouse_trims_booking_pdf():
             msg += ' সমস্যা: ' + '; '.join(file_errors)
         return jsonify({'error': msg}), 422
 
-    def _apply_primark(items):
-        if is_primark:
-            for item in items:
-                item['ply'] = '3'
-                if item.get('style_no'):
-                    item['style_no'] = f"{item['style_no']}/{primark_weight_class}"
-
     verified_warning = None
     if buyer_name not in CARTON_VERIFIED_BUYERS:
         verified_warning = (
@@ -1157,7 +1146,6 @@ def autocarton_process_outhouse_trims_booking_pdf():
                 total_warn_count = 0
                 with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
                     for filename, hdr, items, raw_bytes in per_file_results:
-                        _apply_primark(items)
                         group_warnings = validate_line_items(items)
                         if verified_warning:
                             group_warnings.append(verified_warning)
@@ -1208,7 +1196,6 @@ def autocarton_process_outhouse_trims_booking_pdf():
         line_items.extend(items)
         full_dump.append(build_pdf_full_dump(io.BytesIO(raw_bytes), filename))
 
-    _apply_primark(line_items)
 
     warnings = validate_line_items(line_items)
     for e in file_errors:
