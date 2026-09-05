@@ -19,6 +19,11 @@ import pandas as pd
 #     (÷10)। Vera Bradley-র মতো কিছু শিটে CM আর INCH দুটো measurement-গ্রুপ
 #     পাশাপাশি থাকে — তখন সবসময় CM-গ্রুপটাই নেওয়া হয়, INCH উপেক্ষা করা হয়।
 #   - Qty সবসময় "TTL Ctns (CTNS)" কলাম থেকে।
+#   - হাইড করা শিট আগে থেকেই স্কিপ করা হতো। এখন একই শিটের ভেতরে হাইড করা
+#     রো বা কলামও (ইউজার-কনফার্মড) সম্পূর্ণ বাদ দেওয়া হয় — শুধু visible
+#     রো/কলাম থেকেই ডাটা নেওয়া হবে। .xlsx-এ openpyxl দিয়ে, .xls-এ xlrd-এর
+#     formatting_info দিয়ে হাইড রো/কলাম শনাক্ত করা হয়; শনাক্ত করতে না পারলে
+#     (এক্সসেপশন হলে) নিরাপদ ডিফল্ট হিসেবে কিছুই হাইড ধরা হয় না।
 # ---------------------------------------------------------------------------
 
 
@@ -51,12 +56,16 @@ BUYER_PROFILES = {
 }
 
 
-def _find_header_rows(df):
+def _find_header_rows(df, hidden_rows=None):
     """পুরো শিট স্ক্যান করে সব 'Carton No. + TTL Ctns' হেডার-রো (একাধিক
-    PO-ব্লক থাকলে একাধিক পাওয়া যাবে) বের করে।"""
+    PO-ব্লক থাকলে একাধিক পাওয়া যাবে) বের করে। হাইড করা রো-কে হেডার হিসেবে
+    ধরা হয় না।"""
+    hidden_rows = hidden_rows or set()
     rows = []
     n_rows, n_cols = df.shape
     for r in range(n_rows):
+        if r in hidden_rows:
+            continue
         labels = {_norm(df.iat[r, c]) for c in range(n_cols) if _clean(df.iat[r, c])}
         if 'cartonno' in labels and 'ttlctns' in labels:
             rows.append(r)
@@ -82,15 +91,20 @@ def _extract_po_for_block(df, header_row):
     return ''
 
 
-def _build_col_map(df, header_row):
+def _build_col_map(df, header_row, hidden_cols=None):
     """header_row আর header_row+1 (দুই-রো হেডার) একসাথে স্ক্যান করে সব
-    পরিচিত লেবেল-কলাম ম্যাপ করে। Measurement-এর ক্ষেত্রে একাধিক গ্রুপ
-    (CM/MM/INCH) থাকতে পারে, তাই সবগুলো আলাদাভাবে রেকর্ড করা হয়।"""
+    পরিচিত লেবেল-কলাম ম্যাপ করে। হাইড করা কলাম পুরোপুরি বাদ দেওয়া হয় —
+    অর্থাৎ সেই কলামে যে লেবেলই থাকুক না কেন, সেটাকে কোনো ডাটা-সোর্স হিসেবে
+    ধরা হবে না। Measurement-এর ক্ষেত্রে একাধিক গ্রুপ (CM/MM/INCH) থাকতে
+    পারে, তাই সবগুলো আলাদাভাবে রেকর্ড করা হয় (হাইড গ্রুপ বাদে)।"""
+    hidden_cols = hidden_cols or set()
     n_cols = df.shape[1]
     col_map = {}
     measurement_groups = []  # [(start_col, unit), ...]
 
     for c in range(n_cols):
+        if c in hidden_cols:
+            continue
         top = _clean(df.iat[header_row, c])
         sub = _clean(df.iat[header_row + 1, c]) if header_row + 1 < df.shape[0] else ''
         top_norm = _norm(top)
@@ -159,13 +173,69 @@ def _get_visible_sheet_names(file_stream, filename):
         file_stream.seek(0)
 
 
+def _get_hidden_rows_cols(file_stream, filename, sheet_name):
+    """একটা নির্দিষ্ট (visible) শিটের ভেতরে হাইড করা রো/কলামের index
+    (0-indexed, pandas-এর সাথে সামঞ্জস্যপূর্ণ) বের করে।
+
+    .xlsx: openpyxl দিয়ে row_dimensions/column_dimensions-এর 'hidden'
+    ফ্ল্যাগ চেক করা হয় (read_only মোডে এই তথ্য নির্ভরযোগ্যভাবে পাওয়া যায়
+    না, তাই normal মোডে লোড করা হয়)।
+    .xls: xlrd-এ formatting_info=True দিয়ে rowinfo_map/colinfo_map থেকে।
+
+    শনাক্ত করতে না পারলে (এক্সসেপশন, বা ফরম্যাট সাপোর্ট না থাকলে) খালি
+    সেট রিটার্ন করে — নিরাপদ ডিফল্ট হিসেবে তখন কিছুই হাইড ধরা হবে না।
+    """
+    hidden_rows = set()
+    hidden_cols = set()
+    try:
+        file_stream.seek(0)
+        if filename.lower().endswith('.xls'):
+            import xlrd
+            book = xlrd.open_workbook(file_contents=file_stream.read(), formatting_info=True)
+            if sheet_name not in book.sheet_names():
+                return hidden_rows, hidden_cols
+            sheet = book.sheet_by_name(sheet_name)
+            for rowx, rowinfo in getattr(sheet, 'rowinfo_map', {}).items():
+                if getattr(rowinfo, 'hidden', 0):
+                    hidden_rows.add(rowx)
+            for colx, colinfo in getattr(sheet, 'colinfo_map', {}).items():
+                if getattr(colinfo, 'hidden', 0):
+                    hidden_cols.add(colx)
+        else:
+            from openpyxl import load_workbook as _load_wb
+            from openpyxl.utils import column_index_from_string
+            wb = _load_wb(file_stream, read_only=False, data_only=True)
+            if sheet_name not in wb.sheetnames:
+                wb.close()
+                return hidden_rows, hidden_cols
+            ws = wb[sheet_name]
+            for row_idx, dim in ws.row_dimensions.items():
+                if dim.hidden:
+                    hidden_rows.add(row_idx - 1)  # openpyxl 1-indexed -> pandas 0-indexed
+            for col_letter, dim in ws.column_dimensions.items():
+                if dim.hidden:
+                    try:
+                        hidden_cols.add(column_index_from_string(col_letter) - 1)
+                    except ValueError:
+                        continue
+            wb.close()
+    except Exception:
+        return set(), set()
+    finally:
+        file_stream.seek(0)
+    return hidden_rows, hidden_cols
+
+
 def read_ventura_style_excel(file_stream, filename='', buyer_key='', item_name_override='', manual_ply=''):
     """মূল entry point। buyer_key যেমন 'Kate Spade'/'Michael Kors'/'Coach'/
     'Le Sportsac'/'Vera Bradley' (case-insensitive, স্পেস বাদ দিয়ে) — কোন
     কলাম থেকে reference/pack_type নেবে তা ঠিক করতে ব্যবহার হয়। item_name
     আর ply এক্সেলে থাকে না, তাই UI থেকে (existing outhouse_item_name/
     outhouse_ply কনভেনশন অনুযায়ী) override হিসেবে নেওয়া হয়। এই ফরম্যাট
-    না হলে (কোনো header block না পেলে) খালি লিস্ট [] রিটার্ন করে।"""
+    না হলে (কোনো header block না পেলে) খালি লিস্ট [] রিটার্ন করে।
+
+    হাইড করা শিট, এবং একই শিটের ভেতরে হাইড করা রো/কলাম — দুটোই স্কিপ করা
+    হয়, শুধু visible ডাটা থেকেই লাইন-আইটেম তৈরি হয়।"""
     profile_key = _norm(buyer_key)
     profile = BUYER_PROFILES.get(profile_key, {})
     ref_labels = profile.get('ref', [])
@@ -178,9 +248,12 @@ def read_ventura_style_excel(file_stream, filename='', buyer_key='', item_name_o
     for sheet_name, df in sheets.items():
         if visible_sheet_names is not None and sheet_name not in visible_sheet_names:
             continue  # হাইড করা শিট — স্কিপ
-        header_rows = _find_header_rows(df)
+
+        hidden_rows, hidden_cols = _get_hidden_rows_cols(file_stream, filename, sheet_name)
+
+        header_rows = _find_header_rows(df, hidden_rows)
         for idx, header_row in enumerate(header_rows):
-            col_map, measurement_groups = _build_col_map(df, header_row)
+            col_map, measurement_groups = _build_col_map(df, header_row, hidden_cols)
             if 'qty' not in col_map:
                 continue
 
@@ -203,6 +276,8 @@ def read_ventura_style_excel(file_stream, filename='', buyer_key='', item_name_o
             for r in range(header_row + 2, next_header_row):
                 if r >= df.shape[0]:
                     break
+                if r in hidden_rows:
+                    continue  # হাইড করা রো — স্কিপ
                 qty_val = df.iat[r, qty_col]
                 style_val = _clean(df.iat[r, style_col])
                 if not _is_num(qty_val) or not style_val:
@@ -215,9 +290,12 @@ def read_ventura_style_excel(file_stream, filename='', buyer_key='', item_name_o
                     """L/W/H যেকোনো একটা কলাম আলাদাভাবে পার্স করে — ফাঁকা/সংখ্যা
                     না হলে '' রিটার্ন করে, পুরো রো বাদ দেয় না (Divider-জাতীয়
                     আইটেমে Height না-ও থাকতে পারে, সেটাও visible-যা-আছে-তাই
-                    হিসেবে রাখা হয়)।"""
+                    হিসেবে রাখা হয়)। যে কলাম হাইড, তার ভ্যালুও '' ধরা হয়।"""
+                    dim_col = meas_col + col_offset
+                    if dim_col in hidden_cols:
+                        return ''
                     try:
-                        v = float(df.iat[r, meas_col + col_offset])
+                        v = float(df.iat[r, dim_col])
                     except (TypeError, ValueError):
                         return ''
                     if needs_mm_conversion:

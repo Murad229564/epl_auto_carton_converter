@@ -1,313 +1,354 @@
+"""
+আউট হাউজ Carton — 'Multiple Job Wise Trims Booking' / 'Main Trims Booking'
+স্টাইলের PDF ফরম্যাট (Barnali, Modele de Capital, URMI/Fakhruddin ইত্যাদি)।
+
+প্রতিটা PDF-এ একাধিক "ব্লক" থাকে — প্রতিটা ব্লক একটা নির্দিষ্ট PO-এর জন্য:
+  - একটা টাইটেল-রো (যেমন "As Per Garments Color (Job NO:...) Style NO:...
+    Po Qty.: ... Po No: ... Shipment Date: ...", বা "Color & size sensitive
+    (...)...", বা "NO sensitive (...)...")
+  - একটা হেডার-রো (Sl, Item Group, Item Description, ... — ফরম্যাট ভেদে
+    কলাম-সেট আলাদা হতে পারে)
+  - এক বা একাধিক ডাটা-রো
+  - একটা "Item Total" রো
+  - একটা "Total" রো (ব্লক শেষ)
+
+⚠️ গুরুত্বপূর্ণ ফিক্স (পেজ-ব্রেক বাগ): যখন কোনো ব্লকের ডাটা-রো (বিশেষ করে
+'Item Group' কলামের লম্বা মাল্টি-লাইন টেক্সট, যেমন "Top Bottom\\nCzech\\n
+Republic,Germany,...UAE") পাতার শেষে গিয়ে পরের পাতায় চলে যায়, তখন
+pdfplumber প্রতিটা পাতা আলাদাভাবে পড়ে বলে সেই একটা রো **দুই টুকরায় ভেঙে
+যায়** — প্রথম পাতায় Sl/Item Group ফাঁকা (None) হয়ে যায়, পরের পাতায়
+Item Group-এর বাকি অংশ 'Item Total' রো-এর সাথে মিশে অদ্ভুত রো হয়ে যায়,
+এবং কখনো কখনো continuation রো-তে একটা এক্সট্রা ফাঁকা কলামও ঢুকে গিয়ে
+বাকি কলামগুলো ডানদিকে শিফট হয়ে যায়। আগের কোড পাতা-ভিত্তিক আলাদাভাবে
+প্রসেস করত বলে এই ভাঙা রো-গুলোর আসল কোয়ান্টিটি ডাটা হারিয়ে যাচ্ছিল।
+
+সমাধান:
+  1. পাতা-ভিত্তিক আলাদা না করে, PDF-এর সব পাতার সব টেবিল একসাথে ফ্ল্যাট
+     করে নেওয়া হয় প্রথমে।
+  2. ব্লক-বাউন্ডারি টেবিল/পাতার সীমানা দিয়ে না, বরং নতুন টাইটেল-রো বা
+     "Total" রো দিয়ে ঠিক হয় — তাই ব্লকের ডাটা টেবিল/পাতার সীমানায় ভেঙে
+     গেলেও রো-স্ক্যান থামে না, পরের টেবিল/পাতা থেকেও রো টেনে আনতে থাকে।
+  3. "Item Group" (Item Name-এর উৎস) কোনো রো-তে ফাঁকা পেলে প্রথমে একই
+     ব্লকের আগের রো থেকে forward-fill, সেটাও না পেলে পুরো ডকুমেন্ট জুড়ে
+     সবচেয়ে বেশিবার পাওয়া ভ্যালু (একটা ফাইলে সাধারণত একটাই আইটেম-টাইপ
+     থাকে) ফলব্যাক হিসেবে ব্যবহার হয়।
+  4. "Item Total" রো-এর টেক্সট মাঝেমধ্যে দুই সেলে ভেঙে যায় (যেমন
+     'Item Tota' + 'l 88.0000') — সব সেল জোড়া লাগিয়ে সঠিকভাবে চেনা হয়।
+  5. কলাম-ম্যাপিং রো-এর **শেষ থেকে দূরত্ব (distance-from-end)** দিয়ে করা
+     হয়, শুরু থেকে ইনডেক্স দিয়ে না — কারণ কিছু ভাঙা continuation রো-তে
+     শুরুর দিকে একটা এক্সট্রা ফাঁকা কলাম ঢুকে যায় (পুরো রো ডানে শিফট হয়ে
+     যায়), কিন্তু qty/UOM/Rate/Amount কলামগুলো সবসময় রো-এর শেষের দিকে
+     নিজেদের আপেক্ষিক অবস্থানে ঠিকই থাকে — তাই শেষ থেকে গুনলে শিফট হওয়া
+     রো-তেও সঠিক কলাম মেলে।
+  6. Measurement (L x W [x H] CM) আর Qty কলামের নাম/অবস্থান ফরম্যাট-ভেদে
+     ভিন্ন — regex + label-ভিত্তিক flexible ম্যাচিং দিয়ে বের করা হয়।
+"""
 import re
 import pdfplumber
 
 
-def clean(v):
+def _norm(v):
+    return re.sub(r'\s+', '', str(v or '')).lower()
+
+
+def _clean(v):
     if v is None:
         return ''
     return re.sub(r'\s+', ' ', str(v)).strip()
 
 
-# টাইটেল রো থেকে Job No / Style No / Po No বের করার প্যাটার্ন। এই PDF-পরিবারে
-# ("Multiple Job Wise Trims Booking V2") প্রতিটা Job/Style ব্লকের শুরুতে একটাই
-# লম্বা লাইনে সব তথ্য থাকে — buyer/vendor ভেদে prefix লেবেল (Size Sensitive/
-# NO sensitive/As Per Garments Color/Color & size sensitive ইত্যাদি) এবং শেষে
-# কী দিয়ে থামে (LC/SC: বা Shipment Date:) আলাদা হতে পারে, তাই prefix লেবেল
-# উপেক্ষা করে শুধু Job NO/Style NO/Po No প্যাটার্নটাই ধরা হচ্ছে — এটা নতুন
-# prefix লেবেল এলেও কাজ করবে।
-_TITLE_RE = re.compile(
-    r'\(\s*Job\s*NO\s*:\s*([^)]+)\)\s*'
-    r'Style\s*NO\s*:\s*(\S+).*?'
-    r'Po\s*No\s*:\s*(.+?)\s*(?:LC/SC|Shipment\s*Date|$)',
-    re.I,
-)
-
-# Item Description-এর মধ্যে থাকা মেজারমেন্ট বের করার দুই ধরনের প্যাটার্ন:
-#   (ক) "L55 X W35 X H16 CM"   — L/W/H লেটার-প্রিফিক্সড (Barnali-স্টাইল)
-#   (খ) "300X200X160 MM"       — শুধু সংখ্যা×সংখ্যা×সংখ্যা, ইউনিট শেষে (Modele-স্টাইল)
-# একাধিক সেপারেটর ('X','x','×','*') এবং কমা-ডেসিমেল (ইউরোপীয় স্টাইল, '35,5')
-# সহ্য করা হচ্ছে, যাতে ভবিষ্যতের নতুন ভেন্ডরের সামান্য ভিন্ন ফরম্যাটেও কাজ করে।
-_MEASUREMENT_RE_LETTERED = re.compile(
-    r'L\s*[-:]?\s*(\d+(?:[.,]\d+)?)\s*[×xX*]\s*W\s*[-:]?\s*(\d+(?:[.,]\d+)?)'
-    r'(?:\s*[×xX*]\s*H\s*[-:]?\s*(\d+(?:[.,]\d+)?))?\s*(CM|MM|INCH(?:ES)?|IN)?',
-    re.I,
-)
-_MEASUREMENT_RE_PLAIN = re.compile(
-    r'(\d+(?:[.,]\d+)?)\s*[×xX*]\s*(\d+(?:[.,]\d+)?)(?:\s*[×xX*]\s*(\d+(?:[.,]\d+)?))?\s*(CM|MM|INCH(?:ES)?|IN)?',
-    re.I,
-)
-
-
-def _mm_to_cm(value):
-    """MM -> CM (÷10), অহেতুক ট্রেইলিং জিরো/দশমিক ছাড়াই।"""
-    if not value:
-        return value
+def _is_num(v):
+    if v is None:
+        return False
     try:
-        num = float(str(value).replace(',', '.')) / 10
-    except ValueError:
-        return value
-    if num == int(num):
-        return str(int(num))
-    return f"{num:.2f}".rstrip('0').rstrip('.')
+        float(str(v).replace(',', '').strip())
+        return True
+    except (TypeError, ValueError):
+        return False
 
 
-def _normalize_measurement(length, width, height, unit):
-    """টেমপ্লেটে সবসময় CM রাখতে হবে (ইউজারের স্পষ্ট নির্দেশ) — তাই MM পাওয়া
-    গেলে অটোমেটিক CM-এ কনভার্ট করা হচ্ছে (÷10)। Inch পাওয়া গেলে Inch-ই
-    থাকবে (কনভার্ট হবে না) — সেটাও ইউজারের নির্দেশ অনুযায়ী।"""
-    unit = (unit or 'CM').upper()
-    if unit == 'MM':
-        return _mm_to_cm(length), _mm_to_cm(width), _mm_to_cm(height), 'CM'
-    if unit.startswith('IN'):
-        return length, width, height, 'Inch'
-    # কমা-ডেসিমেল থাকলে ডট-এ বদলে দেওয়া হচ্ছে
-    return (
-        str(length).replace(',', '.') if length else length,
-        str(width).replace(',', '.') if width else width,
-        str(height).replace(',', '.') if height else height,
-        'CM',
-    )
+def _num(v):
+    try:
+        return float(str(v).replace(',', '').strip())
+    except (TypeError, ValueError):
+        return None
 
 
-def _match_measurement(text):
-    m = _MEASUREMENT_RE_LETTERED.search(text)
-    if m:
-        return _normalize_measurement(m.group(1), m.group(2), m.group(3) or '', m.group(4))
-    m = _MEASUREMENT_RE_PLAIN.search(text)
-    if m:
-        return _normalize_measurement(m.group(1), m.group(2), m.group(3) or '', m.group(4))
+def _fmt_num(v):
+    if v is None:
+        return ''
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return ''
+    return str(int(f)) if f == int(f) else str(round(f, 3))
+
+
+_MEAS_RE = re.compile(r'(\d+\.?\d*)\s*[xX]\s*(\d+\.?\d*)(?:\s*[xX]\s*(\d+\.?\d*))?\s*C?M?\b')
+
+
+def _find_measurement(row_cells):
+    """পুরো রো-এর সব সেলে measurement প্যাটার্ন (L x W [x H] [C]M) খোঁজে —
+    ফরম্যাট-ভেদে এটা 'Item Description' বা 'Item Size' যেকোনো কলামে
+    থাকতে পারে, তাই fixed কলাম ধরা হচ্ছে না।"""
+    for cell in row_cells:
+        text = _clean(cell)
+        if not text:
+            continue
+        m = _MEAS_RE.search(text)
+        if m:
+            l = _fmt_num(m.group(1))
+            w = _fmt_num(m.group(2))
+            h = _fmt_num(m.group(3)) if m.group(3) else ''
+            return l, w, h
+    return '', '', ''
+
+
+_TITLE_STYLE_RE = re.compile(r'Style\s*NO\s*:\s*([^\s]+)', re.I)
+_TITLE_PONO_RE = re.compile(
+    r'Po\s*No\s*:\s*(.+?)(?:\s+Shipment\s*Date\s*:|\s+LC\s*/\s*SC\s*:?\s*$|$)', re.I)
+_TITLE_JOBNO_RE = re.compile(r'Job\s*NO\s*:\s*([^\)]+)\)', re.I)
+
+
+def _is_title_row(row):
+    first = _clean(row[0]) if row else ''
+    n = _norm(first)
+    return 'styleno' in n and 'pono' in n
+
+
+def _parse_title_row(row):
+    text = _clean(row[0])
+    style_m = _TITLE_STYLE_RE.search(text)
+    po_m = _TITLE_PONO_RE.search(text)
+    return {
+        'style_no': style_m.group(1).strip() if style_m else '',
+        'po_no': po_m.group(1).strip().rstrip(',') if po_m else '',
+    }
+
+
+def _is_header_row(row):
+    return bool(row) and _norm(row[0]) == 'sl'
+
+
+_HEADER_LABELS = {
+    'itemgroup': 'item_group',
+    'itemdescription': 'item_description',
+    'brandsupplierref.': 'brand_ref',
+    'brandsupplierref': 'brand_ref',
+    'itemcolor': 'item_color',
+    'gmtscolor': 'gmts_color',
+    'gmtssize': 'gmts_size',
+    'itemsize': 'item_size',
+    'woqty': 'qty',
+    'woqty.': 'qty',
+    'qnty': 'qty',
+    'uom': 'uom',
+    'rate': 'rate',
+    'amount': 'amount',
+    'remarks': 'remarks',
+}
+
+
+def _build_header_map(row):
+    """হেডার-রো থেকে প্রতিটা কলামের 'শেষ থেকে দূরত্ব' হিসেব করে রাখে —
+    দেখুন উপরের মডিউল-ডকস্ট্রিং পয়েন্ট ৫।"""
+    n = len(row)
+    col_map = {}
+    for c, cell in enumerate(row):
+        label = _norm(cell)
+        if label in _HEADER_LABELS:
+            key = _HEADER_LABELS[label]
+            if key not in col_map:
+                col_map[key] = n - 1 - c
+    return col_map
+
+
+def _resolve_col(header_map, key, row):
+    if key not in header_map:
+        return None
+    idx = len(row) - 1 - header_map[key]
+    if 0 <= idx < len(row):
+        return idx
     return None
 
 
-def _parse_title(text):
-    m = _TITLE_RE.search(text)
-    if not m:
-        return None
-    return {
-        'job_no': clean(m.group(1)),
-        'style_no': clean(m.group(2)),
-        'po_no': clean(m.group(3)),
-    }
+def _joined_row_text(row):
+    return _norm(''.join(_clean(c) for c in row if c is not None))
 
 
-def _split_item_group_glitch(raw_group_text):
-    """মাঝেমধ্যে pdfplumber Item Group সেলের সাথে পরবর্তী কয়েকটা রো-র Item
-    Description-এর হারানো leading digit ভুলবশত জুড়ে দেয় (যেমন
-    '3\\nCarton 3\\n3' — আসল লেবেল শুধু 'Carton', আর '3','3','3' তিনটা
-    আলাদা রো-র মেজারমেন্টের হারানো প্রথম অঙ্ক)। এই ফাংশন লেবেল আর সেই
-    স্ট্রে ডিজিট-টোকেনগুলো (ক্রম ঠিক রেখে) আলাদা করে দেয়।
-
-    Returns (label, [stray_digit_tokens])।"""
-    tokens = re.split(r'[\s\n]+', raw_group_text.strip())
-    digits = [t for t in tokens if t.isdigit()]
-    label_tokens = [t for t in tokens if not t.isdigit()]
-    label = ' '.join(label_tokens).strip()
-    return label, digits
+def _is_item_total_row(row):
+    return 'itemtotal' in _joined_row_text(row)
 
 
-def extract_trims_booking_line_items(pdf):
-    """'Multiple Job Wise Trims Booking V2' PDF-পরিবার (Barnali, Modele de
-    Capital ইত্যাদি — একই ERP সফটওয়্যার থেকে তৈরি, কিন্তু ভেন্ডর-ভেদে কলাম
-    সাজানো/টাইটেল-লেবেল একটু আলাদা) থেকে লাইন-আইটেম বের করে।
-
-    Item Group কলাম অনুযায়ী:
-    - 'Carton'          -> Item Name 'Master Carton', ডিফল্ট Ply 5
-    - 'Carton Top/Btm'  -> Item Name 'Top Bottom',    ডিফল্ট Ply 3
-    (কোনো buyer-এর জন্য Ply ফিক্সড/ওভাররাইড দরকার হলে — যেমন Primark সবসময়
-    3-ply — সেটা app.py-তে বায়ার নিশ্চিত হওয়ার পর প্রয়োগ হয়, কারণ
-    এক্সট্র্যাকশনের সময় এখনো জানা থাকে না ইউজার শেষমেশ কোন buyer কনফার্ম করবেন)
-
-    কৌশল: এই PDF-পরিবারে পাতা-ভেদে টেবিলের কলাম-বাউন্ডারি সামান্য শিফট হতে
-    পারে, তাই exact column index ধরে না রেখে প্রতিটা রো-তে "ল্যান্ডমার্ক"
-    মান (মেজারমেন্ট প্যাটার্ন, আর 'Pcs' টেক্সট) খুঁজে সেগুলোর সাপেক্ষে ডাটা
-    বের করা হচ্ছে।
-
-    Style No/PO No/Job No ব্লক-টাইটেল থেকে আসে (প্রতিটা সাইজ-ভ্যারিয়েন্ট
-    রো-তে এগুলো repeat হয় না, তাই ব্লক-লেভেলে ধরে রেখে প্রতিটা ডাটা রো-তে
-    ফরওয়ার্ড-ফিল করে বসানো হয়)।
-    """
-    line_items = []
-    current_block = None
-    current_item_group = ''
-    # কিছু পাতায় pdfplumber Item Group সেলের সাথে পরের কয়েকটা রো-র Item
-    # Description-এর হারানো প্রথম অঙ্ক ভুলবশত জুড়ে দেয় (নিচে
-    # _split_item_group_glitch দেখুন) — এই queue-তে সেই হারানো অঙ্কগুলো
-    # ক্রমানুসারে জমা থাকে, প্রতিটা রো প্রসেস করার সময় একটা করে ব্যবহার হয়।
-    pending_digit_prefixes = []
-
-    for page in pdf.pages:
-        for t in page.extract_tables():
-            for row in t:
-                if not row or all(c is None for c in row):
-                    continue
-                first_cell = clean(row[0])
-
-                parsed_title = _parse_title(first_cell)
-                if parsed_title:
-                    current_block = parsed_title
-                    current_item_group = ''
-                    pending_digit_prefixes = []
-                    continue
-
-                if first_cell == 'Sl' or first_cell.startswith('Sl '):
-                    continue  # কলাম-হেডার রো
-
-                row_text_joined = ' '.join(clean(c) for c in row if c is not None).lower()
-                if 'item total' in row_text_joined:
-                    continue
-                if first_cell == 'Total':
-                    continue
-
-                if current_block is None:
-                    continue
-
-                # Item Group (Carton / Carton Top/Btm) শুধু প্রতি গ্রুপের প্রথম
-                # রো-তে থাকে, বাকিগুলোয় ফাঁকা — ফরওয়ার্ড-ফিল করা হচ্ছে
-                row_item_group = clean(row[1]) if len(row) > 1 else ''
-                if row_item_group:
-                    label, stray_digits = _split_item_group_glitch(row_item_group)
-                    if label:
-                        current_item_group = label
-                    if stray_digits:
-                        pending_digit_prefixes = stray_digits
-                if not current_item_group:
-                    continue
-
-                prefix_digit = pending_digit_prefixes.pop(0) if pending_digit_prefixes else ''
-
-                cell_texts = [str(c) for c in row if c is not None]
-                measurement = None
-                # গ্লিচ-প্রবণ ব্লকে (prefix_digit পাওয়া গেলে) prefix জুড়ে আগে
-                # চেষ্টা করা হয়, কারণ prefix ছাড়া মেলানো গেলেও সেটা ভুল হতে
-                # পারে (যেমন '00x200x160mm' প্রিফিক্স ছাড়াই ভুলভাবে মিলে যায়,
-                # ঠিক মান পেতে prefix লাগবেই)
-                if prefix_digit:
-                    for text in cell_texts:
-                        measurement = _match_measurement(prefix_digit + text)
-                        if measurement:
-                            break
-                if not measurement:
-                    for text in cell_texts:
-                        measurement = _match_measurement(text)
-                        if measurement:
-                            break
-                if not measurement:
-                    continue  # ডাটা রো না (সম্ভবত কোনো সামারি/অন্য লাইন)
-
-                length, width, height, unit = measurement
-
-                # Qty: 'Pcs'-এর ঠিক আগের non-blank ভ্যালুটাই কোয়ান্টিটি
-                # (কলামের নাম ভিন্ন হতে পারে — 'WO Qty.'/'WO Qty'/'Qnty' —
-                # কিন্তু পজিশন সবসময় 'Pcs'-এর ঠিক আগেই থাকে)।
-                # কিছু পাতায় pdfplumber সংখ্যার শেষ ডিজিট 'Pcs'-এর সাথে জুড়ে
-                # দেয় (যেমন '51.0000 Pcs' -> '51.000' + '0 Pcs') — সেই
-                # গ্লিচ ধরে সঠিক সংখ্যাটা পুনর্গঠন করা হচ্ছে।
-                non_blank = [clean(c) for c in row if c is not None and clean(c) != '']
-                qty = ''
-                pcs_idx = None
-                pcs_prefix = ''
-                for i, val in enumerate(non_blank):
-                    pm = re.match(r'^(\d*)\s*Pcs$', val, re.I)
-                    if pm:
-                        pcs_idx = i
-                        pcs_prefix = pm.group(1)
-                        break
-                if pcs_idx is not None and pcs_idx > 0:
-                    qty = non_blank[pcs_idx - 1] + pcs_prefix
-
-                is_top_bottom = 'top' in current_item_group.lower()
-                item_name = 'Top Bottom' if is_top_bottom else 'Master Carton'
-                ply = '3' if is_top_bottom else '5'
-
-                line_items.append({
-                    'item_name': item_name,
-                    'ewo_no': 'N/A',
-                    'style_no': current_block['style_no'],
-                    'po_no': current_block['po_no'],
-                    'length': length,
-                    'width': width,
-                    'height': height,
-                    'ply': ply,
-                    'qty': qty,
-                    'pack_type': '',
-                    # ইউজারের নির্দেশ অনুযায়ী — Job No -> Reference/SKU Number
-                    'reference': current_block['job_no'],
-                    'color': '',
-                    'size': '',
-                    'delivery_date': '',
-                    'measurement_unit': unit,
-                    'delivery_place_pdf': '',
-                    'delivery_address_pdf': '',
-                })
-
-    return line_items
+def _is_block_total_row(row):
+    return bool(row) and _norm(row[0]) == 'total'
 
 
-def _significant_words(s):
-    """তুলনা করার জন্য 'Ltd/Pvt/Industries/Group' জাতীয় সাধারণ কোম্পানি-সাফিক্স
-    শব্দ বাদ দিয়ে শুধু আসল/স্বতন্ত্র শব্দগুলো বের করে (case-insensitive)।"""
-    stop = {'ltd', 'pvt', 'limited', 'industries', 'ind', 'and', 'the', 'co',
-            'company', 'group', 'ab', 'inc', 'corp', 'corporation', 'private', 'new'}
-    words = re.findall(r'[a-zA-Z]+', s.lower())
-    return set(w for w in words if w not in stop and len(w) > 2)
+def _is_document_footer_start(row):
+    """ডকুমেন্টের একদম নিচে একটা আলাদা সামারি টেবিল থাকে (Item Name |
+    PO Number | PO Qty | WO Qty | Rate | Amount, আর তার আগে 'Total Booking
+    Amount' লাইন) — এটা আসল ব্লক-ডাটা না, তাই এখান থেকে শুরু করে বাকি সব
+    রো একদম বাদ (নাহলে একই qty দ্বিতীয়/তৃতীয়বার ভুল করে গোনা হয়ে যায়)।"""
+    if not row:
+        return False
+    first = _norm(row[0])
+    if 'totalbookingamount' in first:
+        return True
+    normed = [_norm(c) for c in row]
+    if 'itemname' in normed and 'ponumber' in normed:
+        return True
+    return False
 
 
-def _fuzzy_match_from_list(text, candidates):
-    """PDF থেকে বের করা raw টেক্সট আমাদের ফিক্সড লিস্টের কোনটার সাথে সবচেয়ে
-    বেশি মেলে সেটা খুঁজে বের করে — case-sensitive হুবহু মেলার দরকার নেই।
-    মিল ৫০%-এর কম হলে None (তখন ইউজারকে ম্যানুয়ালি বসাতে হবে)।"""
-    if not text or not candidates:
-        return None
-    text_words = _significant_words(text)
-    if not text_words:
-        return None
-    best, best_score = None, 0.0
-    for cand in candidates:
-        cand_words = _significant_words(cand)
-        if not cand_words:
-            continue
-        overlap = len(cand_words & text_words)
-        score = overlap / len(cand_words)
-        if score > best_score:
-            best_score = score
-            best = cand
-    return best if best_score >= 0.5 else None
+def _classify_item(item_group_text):
+    t = (item_group_text or '').lower()
+    if 'top' in t and 'bottom' in t:
+        return 'Top Bottom', '3', False
+    return 'Master Carton', '5', True
 
 
-def extract_trims_booking_header_info(pdf, known_customers=None, known_buyers=None):
-    """এই PDF-পরিবারের প্রথম পাতা থেকে Booking No (-> PO Number), Buyer,
-    এবং Customer (vendor company name) বের করে — known_customers/
-    known_buyers লিস্টের সাথে fuzzy ম্যাচ করে ক্যানোনিকাল নামে বসিয়ে দেয়।
-    কোনোটার সাথে মিল না পেলে (৫০%-এর কম) সেটা ফাঁকা রাখা হয় — যাতে ইউজার
-    বুঝতে পারেন ম্যানুয়ালি লিস্ট থেকে বসাতে হবে, ভুল/আধা-মেলা নাম না বসে।"""
-    text = pdf.pages[0].extract_text() or ''
-
-    booking_no_m = re.search(r'Booking\s*No\s*:\s*(\S+)', text)
-    booking_no = booking_no_m.group(1).strip() if booking_no_m else ''
-
-    buyer_m = re.search(r'Buyer\.?\s*:\s*(.+?)\s+(?:Delivery Date|PO Qty)', text)
-    buyer_raw = buyer_m.group(1).strip() if buyer_m else ''
-
-    customer_m = re.search(r'^(.+?)\s*Booking\s*No\s*:', text, re.DOTALL)
-    customer_raw = re.sub(r'\s+', ' ', customer_m.group(1)).strip() if customer_m else ''
-
-    customer_matched = _fuzzy_match_from_list(customer_raw, known_customers or [])
-    buyer_matched = _fuzzy_match_from_list(buyer_raw, known_buyers or [])
-
-    return {
-        'po_number': booking_no,
-        'customer': customer_matched or '',
-        'buyer': buyer_matched or '',
-    }
-
-
-def process_trims_booking_pdf(file_stream, known_customers=None, known_buyers=None):
-    """এন্ট্রি পয়েন্ট — Returns (header_info, line_items)।
-    header_info: {'po_number', 'customer', 'buyer'} — মিল না পেলে ফাঁকা স্ট্রিং।
-    line_items: canonical schema (builder.py-এর build_combined_excel সরাসরি
-    এটা নিতে পারবে, প্রোফাইল='OUT-HOUSE')।
-    """
+def process_trims_booking_pdf(file_stream, customer_list=None, buyer_list=None):
+    """মূল entry point। রিটার্ন করে (header_info, line_items)। এই ফরম্যাট না
+    হলে (কোনো টাইটেল-রো না পাওয়া গেলে) header_info-তে সব ফাঁকা আর
+    line_items=[] রিটার্ন করে।"""
+    file_stream.seek(0)
+    all_rows = []
     with pdfplumber.open(file_stream) as pdf:
-        header_info = extract_trims_booking_header_info(pdf, known_customers, known_buyers)
-        line_items = extract_trims_booking_line_items(pdf)
+        for page in pdf.pages:
+            for table in page.extract_tables():
+                all_rows.extend(table)
+
+    # ধাপ ১: ডকুমেন্ট-জুড়ে সবচেয়ে বেশি পাওয়া Item Group ভ্যালু বের করা —
+    # page-break-এ কোনো রো তার নিজের Item Group সম্পূর্ণ হারিয়ে ফেললেও
+    # এটাই শেষ ভরসা হিসেবে ব্যবহার হবে।
+    item_group_counts = {}
+    header_map_probe = None
+    for row in all_rows:
+        if _is_document_footer_start(row):
+            break
+        if _is_header_row(row):
+            header_map_probe = _build_header_map(row)
+            continue
+        if not header_map_probe or 'item_group' not in header_map_probe:
+            continue
+        ig_col = _resolve_col(header_map_probe, 'item_group', row)
+        if ig_col is not None:
+            val = _clean(row[ig_col])
+            first_line = val.split('\n')[0].strip() if val else ''
+            if first_line:
+                item_group_counts[first_line] = item_group_counts.get(first_line, 0) + 1
+    dominant_item_group = max(item_group_counts, key=item_group_counts.get) if item_group_counts else ''
+
+    # ধাপ ২: রো-স্ক্যান
+    line_items = []
+    header_map = {}
+    current_style_no = ''
+    current_po_no = ''
+    current_item_group = ''
+    doc_po_number = ''
+
+    for row in all_rows:
+        if not row or all(c is None or _clean(c) == '' for c in row):
+            continue
+
+        if _is_document_footer_start(row):
+            break  # নিচের সামারি/স্বাক্ষর সেকশন — এখান থেকে আর কিছু প্রসেস করা হবে না
+
+        if _is_title_row(row):
+            parsed = _parse_title_row(row)
+            current_style_no = parsed['style_no'] or current_style_no
+            current_po_no = parsed['po_no']
+            current_item_group = ''  # নতুন ব্লক শুরু — রিসেট
+            if not doc_po_number and current_po_no:
+                doc_po_number = current_po_no
+            continue
+
+        if _is_header_row(row):
+            new_map = _build_header_map(row)
+            if new_map:
+                header_map = new_map
+            continue
+
+        if _is_item_total_row(row):
+            continue
+
+        if _is_block_total_row(row):
+            current_item_group = ''
+            continue
+
+        if not header_map or 'qty' not in header_map:
+            continue
+
+        qty_col = _resolve_col(header_map, 'qty', row)
+        qty_val = row[qty_col] if qty_col is not None else None
+        if not _is_num(qty_val):
+            continue
+
+        qty = _num(qty_val)
+        if not qty or qty <= 0:
+            continue
+
+        ig_col = _resolve_col(header_map, 'item_group', row)
+        row_item_group = _clean(row[ig_col]).split('\n')[0].strip() if ig_col is not None else ''
+        if row_item_group:
+            current_item_group = row_item_group
+        effective_item_group = current_item_group or dominant_item_group
+
+        item_name, ply, has_height = _classify_item(effective_item_group)
+        length, width, height = _find_measurement(row)
+        if not has_height:
+            height = ''
+
+        brand_col = _resolve_col(header_map, 'brand_ref', row)
+        color_col = _resolve_col(header_map, 'item_color', row)
+        if color_col is None:
+            color_col = _resolve_col(header_map, 'gmts_color', row)
+        gmts_size_col = _resolve_col(header_map, 'gmts_size', row)
+
+        reference_val = _clean(row[brand_col]) if brand_col is not None else ''
+        pack_type_val = _clean(row[gmts_size_col]) if gmts_size_col is not None else ''
+        color_val = _clean(row[color_col]) if color_col is not None else ''
+
+        line_items.append({
+            'item_name': item_name,
+            'ewo_no': 'N/A',
+            'style_no': current_style_no or 'N/A',
+            'po_no': current_po_no or 'N/A',
+            'length': length,
+            'width': width,
+            'height': height,
+            'ply': ply,
+            'qty': qty,
+            'pack_type': pack_type_val or 'N/A',
+            'reference': reference_val or 'N/A',
+            'remarks': '',
+            'color': color_val or 'N/A',
+            'size': 'N/A',
+            'delivery_date': '',
+            'measurement_unit': 'Cm',
+            'delivery_place_pdf': '',
+            'delivery_address_pdf': '',
+        })
+
+    if not line_items:
+        return {'po_number': '', 'customer': '', 'buyer': ''}, []
+
+    file_stream.seek(0)
+    try:
+        with pdfplumber.open(file_stream) as pdf:
+            first_page_text = pdf.pages[0].extract_text() or ''
+    except Exception:
+        first_page_text = ''
+
+    doc_buyer = ''
+    buyer_m = re.search(r'Buyer\.?\s*:\s*([^\n]+)', first_page_text)
+    if buyer_m:
+        doc_buyer = buyer_m.group(1).strip()
+    doc_customer = first_page_text.split('\n')[0].strip() if first_page_text else ''
+
+    header_info = {
+        'po_number': doc_po_number or '',
+        'customer': doc_customer or '',
+        'buyer': doc_buyer or '',
+    }
     return header_info, line_items
