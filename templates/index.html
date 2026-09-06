@@ -378,7 +378,7 @@
           </div>
           <div id="manualDateWrap" style="display:none; margin-top:6px;">
             <input type="date" id="delivery_date" name="delivery_date">
-            <div class="field-err" id="date_err">আজ থেকে ন্যূনতম ৪ দিন পরে হতে হবে</div>
+            <div class="field-err" id="date_err">Delivery Date অতীতের হতে পারবে না — আজ বা পরের যেকোনো দিন সিলেক্ট করুন</div>
           </div>
           <div id="autoDateHint" class="hint">আজ+৭ দিন, শুক্রবার/সরকারি ছুটি বাদে</div>
         </div>
@@ -645,7 +645,6 @@ const manualDateWrap = document.getElementById('manualDateWrap');
 const autoDateHint = document.getElementById('autoDateHint');
 const deliveryDateInput = document.getElementById('delivery_date');
 const minAllowedDate = new Date();
-minAllowedDate.setDate(minAllowedDate.getDate() + 4);
 const minDateStr = minAllowedDate.toISOString().split('T')[0];
 deliveryDateInput.min = minDateStr;
 

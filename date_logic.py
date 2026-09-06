@@ -8,8 +8,9 @@ Default নিয়ম: order input date + 7 days। সেই ডেট যদ
 উদাহরণ: আজ ৭ তারিখ হলে ডিফল্ট ডেট হবে ১৪ তারিখ। ১৪ তারিখ যদি শুক্রবার বা ছুটির দিন
 হয়, তাহলে ১৫ তারিখ হবে (১৫ তারিখও শুক্রবার/ছুটি হলে ১৬ তারিখ, এভাবে এগোতে থাকবে)।
 
-Manual override নিয়ম: ব্যবহারকারী নিজে থেকে ডেট বসাতে চাইলে, সেই ডেট অবশ্যই
-current date + 4 days বা তার পরে হতে হবে — না হলে reject করা হবে।
+Manual override নিয়ম: ব্যবহারকারী নিজে থেকে ডেট বসাতে চাইলে, সেই ডেট আজকের
+তারিখ (today) বা তার পরে যেকোনো দিন হতে পারবে — শুধু অতীতের (past) কোনো তারিখ
+দেওয়া যাবে না।
 
 সরকারি ছুটির তালিকা 'holidays' প্যাকেজ (PyPI) থেকে অটো আসে, তাই সার্ভার অনলাইনে
 থাকলে প্রতি বছর হাতে আপডেট করা লাগে না। প্যাকেজ যা মিস করে সেটুকু
@@ -50,6 +51,7 @@ def format_delivery_date(d: date) -> str:
 
 def validate_manual_delivery_date(date_str: str, today: date = None):
     """Manual delivery date ভ্যালিড কিনা চেক করে (ফরম্যাট: YYYY-MM-DD, HTML date input থেকে আসে)।
+    নিয়ম: আজকের তারিখ (today) বা তার পরে যেকোনো দিন গ্রহণযোগ্য — শুধু past date reject হবে।
     Returns (is_valid: bool, error_message: str|None, parsed_date: date|None)"""
     today = today or date.today()
     try:
@@ -57,11 +59,10 @@ def validate_manual_delivery_date(date_str: str, today: date = None):
     except (ValueError, TypeError):
         return False, "Delivery Date ফরম্যাট সঠিক না (YYYY-MM-DD হতে হবে)", None
 
-    min_allowed = today + timedelta(days=4)
-    if parsed < min_allowed:
+    if parsed < today:
         return False, (
-            f"Delivery Date কমপক্ষে {min_allowed.isoformat()} বা তার পরে হতে হবে "
-            f"(আজকের তারিখ থেকে ন্যূনতম ৪ দিন পর)"
+            f"Delivery Date অতীতের হতে পারবে না — আজকের তারিখ ({today.isoformat()}) "
+            f"বা তার পরে যেকোনো দিন সিলেক্ট করুন"
         ), None
 
     return True, None, parsed
