@@ -18,6 +18,7 @@ from sinha_tatatrent_extractor import combine_sinha_booking_files
 from sterling_target_extractor import combine_sterling_booking_files
 from everbright_dunnes_extractor import combine_everbright_booking_files
 from intimate_maxdubai_extractor import combine_intimate_booking_files
+from eurotex_max_extractor import combine_eurotex_max_booking_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -415,11 +416,11 @@ def _wrap_aeo(file_stream, filename, item_name_override, manual_ply, buyer_name)
 # বাকি কোনো কোড বদলানোর দরকার নেই।
 #
 # ব্যতিক্রম: Amigo Bangladesh Ltd (Uniqlo), Sinha Knit and Denims Limited
-# (Tata Trent), Sterling Styles Limited (Target) আর Everbright Sweater
-# Ltd. (Dunnes Stores) এই REGISTRY-তে নেই — এরা BATCH_REGISTRY-তে
-# আলাদাভাবে হ্যান্ডল হয় (নিচে দেখুন), কারণ এদের এক্সট্র্যাক্টর প্রতি-ফাইল
-# wrapper প্যাটার্নে চলে না (একাধিক ফাইল জুড়ে ক্রস-ফাইল অর্ডারিং/হাইডেন-
-# রো-কলাম লজিক লাগে)।
+# (Tata Trent), Sterling Styles Limited (Target), Everbright Sweater
+# Ltd. (Dunnes Stores) আর Eurotex Knitwear Ltd. (MAX) এই REGISTRY-তে নেই —
+# এরা BATCH_REGISTRY-তে আলাদাভাবে হ্যান্ডল হয় (নিচে দেখুন), কারণ এদের
+# এক্সট্র্যাক্টর প্রতি-ফাইল wrapper প্যাটার্নে চলে না (একাধিক ফাইল/শিট
+# জুড়ে ক্রস-ফাইল অর্ডারিং/হাইডেন-রো-কলাম লজিক লাগে)।
 # ---------------------------------------------------------------------------
 REGISTRY = {
     (_norm_key('Simba Fashions Limited'), '*'): [_wrap_simba],
@@ -466,6 +467,13 @@ REGISTRY = {
 #     আইটেমে সত্যিকারের Height থাকে (builder.py-এর HEIGHT_NOT_EXEMPT_
 #     KEYWORDS দেখুন — এটা generic 'Divider'-এর height-exempt নিয়মের
 #     ব্যতিক্রম)।
+#   - Eurotex Knitwear Ltd. (MAX): এক ফাইলে একাধিক শিট থাকতে পারে, প্রতিটা
+#     শিটের সব Master Carton লাইন আগে (সবগুলো ফাইল/শিট জুড়ে), তারপর
+#     প্রতিটা শিটের একটা করে 'Top & Bottom' সামারি-লাইন সবার শেষে। শিটের
+#     হেডারে 'Ship To : <নাম>' থাকলে সেটা, নাহলে শিটের ভেতরের
+#     DELIVERY STATUS কলাম (forward-fill) থেকে ডেলিভারি-নাম বের করে
+#     Remarks কলামে বসানো হয়। হাইড করা রো/কলাম বাদ (Excel-এর মধ্যে)। Ply
+#     এই ফরম্যাটে কোথাও থাকে না, তাই UI-এর manual_ply সব রো-তে বসে।
 # প্রতিটা ফাইল আলাদাভাবে প্রসেস করে পরে জোড়া লাগালে এই অর্ডারিং ঠিক রাখা
 # যায় না, তাই এই ফাংশনগুলোকে সবগুলো ফাইল একসাথেই দেওয়া হয়।
 #
@@ -505,12 +513,21 @@ def _batch_intimate(files, item_name_override='', manual_ply=''):
     return combine_intimate_booking_files(files)
 
 
+def _batch_eurotex_max(files, item_name_override='', manual_ply=''):
+    # Item Name ডিফল্ট Master Carton, তবে ELASTIC/HANGER শব্দ পেলে
+    # 'Elastic Hanger Carton' এ auto-detect হয় (extractor নিজেই করে) —
+    # item_name_override শুধু ডিফল্ট-এর জন্য ব্যবহার হয়। Ply এই ফরম্যাটে
+    # কোথাও থাকে না, তাই manual_ply সরাসরি সব রো-তে বসে।
+    return combine_eurotex_max_booking_files(files, item_name_override=item_name_override, manual_ply=manual_ply)
+
+
 BATCH_REGISTRY = {
     (_norm_key('Amigo Bangladesh Ltd'), _norm_key('Uniqlo')): _batch_amigo,
     (_norm_key('Sinha Knit and Denims Limited'), _norm_key('Tata Trent')): _batch_sinha,
     (_norm_key('Sterling Styles Limited'), _norm_key('Target')): _batch_sterling,
     (_norm_key('Everbright Sweater Ltd.'), _norm_key('Dunnes Stores')): _batch_everbright,
     (_norm_key('Intimate Attire Limited'), _norm_key('Max-Dubai')): _batch_intimate,
+    (_norm_key('Eurotex Knitwear Ltd.'), _norm_key('MAX')): _batch_eurotex_max,
 }
 
 

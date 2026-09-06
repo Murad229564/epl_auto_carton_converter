@@ -41,6 +41,7 @@ CUSTOMERS = {
         "Everbright Sweater Ltd.",
         "Intimate Attire Limited",
         "Innovative Knitex Ltd.",
+        "Eurotex Knitwear Ltd.",
     ],
 }
 
@@ -87,6 +88,7 @@ BUYERS = [
     "Dunnes Stores",
     "Max-Dubai",
     "Biscana",
+    "MAX",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -132,6 +134,7 @@ CARTON_VERIFIED_BUYERS = [
     "Dunnes Stores",
     "Max-Dubai",
     "Biscana",
+    "MAX",
 ]
 
 # ---------------------------------------------------------------------------
@@ -201,6 +204,7 @@ CUSTOMER_BUYER_MAP = {
     'Everbright Sweater Ltd.': ['Dunnes Stores'],
     'Intimate Attire Limited': ['Max-Dubai'],
     'Innovative Knitex Ltd.': ['Biscana'],
+    'Eurotex Knitwear Ltd.': ['MAX'],
 }
 
 BUYER_ALIASES = {
@@ -340,7 +344,14 @@ DELIVERY_ADDRESSES = {
     ],
     'Impress Fashion Limited': ['Impress Fashion Ltd.'],
     'Dazzling Dresses Ltd.': ['Dazzling Dresses Ltd.', 'Epyllion Style Limited'],
-    'Eurotex Knitwear Ltd.': ['Bally Cotton Knitdress Ltd.', 'Consist Apparel Ltd'],
+    'Eurotex Knitwear Ltd.': [
+        'Eurotex Knitwear Ltd.',
+        'Consist Apparel Ltd',
+        'TEX ASIA LIMITED.',
+        'TEX ASIA LIMITED.-02',
+        'Euro Knit Spin Composite Ltd.',
+        'Euro Knitspinn Garments Ltd',
+    ],
     'Brandix Apparel Ltd.': ['Brandix Apparel Bangladesh Ltd'],
     'Comfit Composite Knit Limited': ['Comfit Composite Knit Ltd. (Unit-3)', 'Comfit Composite Knit Limited, Unit-02', 'Urmi group'],
     'Pioneer Knitwears (BD) Ltd.': ['Pioneer Knitwears (BD) Ltd.-Mymensingh'],
