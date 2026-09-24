@@ -19,6 +19,7 @@ from sterling_target_extractor import combine_sterling_booking_files
 from everbright_dunnes_extractor import combine_everbright_booking_files
 from intimate_maxdubai_extractor import combine_intimate_booking_files
 from eurotex_max_extractor import combine_eurotex_max_booking_files
+from knitasia_kohls_extractor import read_knitasia_style_excel
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -390,6 +391,9 @@ def _wrap_aeo(file_stream, filename, item_name_override, manual_ply, buyer_name)
     return read_booking_excel(
         file_stream, filename,
         item_name_override=item_name_override, manual_ply=manual_ply)
+    
+def _wrap_knitasia(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_knitasia_style_excel(file_stream, filename, item_name_override=item_name_override)
 
 
 # ---------------------------------------------------------------------------
@@ -436,6 +440,7 @@ REGISTRY = {
     (_norm_key('Knit Concept LTD.'), '*'): [_wrap_knitconcept],
     (_norm_key('Columbia Apparels Limited'), _norm_key('GU')): [_wrap_columbia],
     (_norm_key('Columbia Apparels Limited'), _norm_key('Target Australia')): [_wrap_columbia_target_australia],
+    (_norm_key('Knit Asia Ltd.'), _norm_key("Kohl`s")): [_wrap_knitasia],
 }
 
 

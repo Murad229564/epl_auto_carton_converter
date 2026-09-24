@@ -42,6 +42,7 @@ CUSTOMERS = {
         "Intimate Attire Limited",
         "Innovative Knitex Ltd.",
         "Eurotex Knitwear Ltd.",
+        "Knit Asia Ltd.",
     ],
 }
 
@@ -205,6 +206,7 @@ CUSTOMER_BUYER_MAP = {
     'Intimate Attire Limited': ['Max-Dubai'],
     'Innovative Knitex Ltd.': ['Biscana'],
     'Eurotex Knitwear Ltd.': ['MAX'],
+    'Knit Asia Ltd.': ["Kohl`s"],
 }
 
 BUYER_ALIASES = {
@@ -393,6 +395,18 @@ DELIVERY_ADDRESSES = {
     'Mohsin Knitwears Ltd.': ['MOHSIN KNITWEAS LTD'],
     'Interstoff Apparels Ltd.': ['Interstoff Apparels Ltd.', 'South East Textiles (PVT.) Ltd.', 'Interstoff Clothing Ltd.'],
     'Knit Concept LTD.': ['Knit Concept LTD.', 'Minar Industries Ltd.'],
+    'Knit Asia Ltd.': [
+    'Knit Asia Limited',
+    'Knit Asia Ltd. (Unit-2)',
+    'Arunima Sports Wear Ltd.',
+    'Knit Asia Ltd. (Decathlon Unit)',
+    'Salek Textile Limited (Washing Unit)',
+    'New Asia Fashion Ltd.',
+    'Knit Asia Ltd.-Corporate Head Office',
+    'Knit Asia Limited (RMG Unit)',
+    'Knit Asia',
+    'JM Fabrics Limited',
+],
 }
 
 # ---------------------------------------------------------------------------
