@@ -162,17 +162,21 @@ def read_norp_style_sheet(ws, sheet_name=''):
             r += 1
             continue
 
+        # নতুন: style_no-এর সাথে pack_type (e_str) জোড়া লাগানো হচ্ছে —
+        # Template-এর Gmt. Style No কলামে "PID/PACK_TYPE" ফরম্যাটে বসবে
+        style_combined = f"{current_pid}/{e_str}" if e_str else current_pid
+
         items.append({
             'item_name': current_item_name,
             'ewo_no': 'N/A',
-            'style_no': current_pid,
+            'style_no': style_combined,        # <-- আগে ছিল: current_pid
             'po_no': current_po,
             'length': length,
             'width': width,
             'height': height,
-            'ply': '5',  # ইউজারের নির্দেশ অনুযায়ী — এই কাস্টমারের জন্য সবসময় ফিক্সড ৫ প্লাই
+            'ply': '5',
             'qty': qty,
-            'pack_type': e_str,
+            'pack_type': e_str,                # <-- এটা আগের মতোই আলাদা থাকছে
             'reference': current_color,
             'remarks': current_pck,
             'color': '',

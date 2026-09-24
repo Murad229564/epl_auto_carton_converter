@@ -257,17 +257,23 @@ def read_pfl_style_excel(file_stream, filename=''):
                 r += 1
                 continue
 
+            # নতুন: pack_type আগেই বের করে নেওয়া হচ্ছে, যাতে style_no-এর
+            # সাথে জোড়া লাগানো যায় (Template-এর Gmt. Style No কলামে
+            # "STYLE/PACK_TYPE" ফরম্যাটে বসবে — ইউজার-কনফার্মড)
+            pack_type_val = _clean(ws.cell(row=r, column=upc_col).value)
+            style_combined = f"{_clean(style_val)}/{pack_type_val}" if pack_type_val else _clean(style_val)
+
             all_items.append({
                 'item_name': item_name,
-                'ewo_no': 'N/A',  # OUT-HOUSE-এ EWO No লাগে না — ইউজার-কনফার্মড, সবসময় N/A
-                'style_no': _clean(style_val),
+                'ewo_no': 'N/A',
+                'style_no': style_combined,          # <-- আগে ছিল: _clean(style_val)
                 'po_no': po_no,
                 'length': length,
                 'width': width,
                 'height': height,
-                'ply': '5',  # ইউজারের নির্দেশ অনুযায়ী — ফিক্সড ৫ প্লাই
+                'ply': '5',
                 'qty': qty_val,
-                'pack_type': _clean(ws.cell(row=r, column=upc_col).value),
+                'pack_type': pack_type_val,           # <-- এটা আগের মতোই আলাদা থাকছে
                 'reference': _clean(ws.cell(row=r, column=color_col).value),
                 'remarks': '',
                 'color': '',
