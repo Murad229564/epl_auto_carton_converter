@@ -43,6 +43,8 @@ CUSTOMERS = {
         "Innovative Knitex Ltd.",
         "Eurotex Knitwear Ltd.",
         "Knit Asia Ltd.",
+        "Green Life Knit Composite ltd.",
+        "Fame Apparels Limited",
     ],
 }
 
@@ -90,6 +92,8 @@ BUYERS = [
     "Max-Dubai",
     "Biscana",
     "MAX",
+    "ALLIGO",
+    "Defacto",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -136,6 +140,8 @@ CARTON_VERIFIED_BUYERS = [
     "Max-Dubai",
     "Biscana",
     "MAX",
+    "ALLIGO",
+    "Defacto",
 ]
 
 # ---------------------------------------------------------------------------
@@ -207,6 +213,8 @@ CUSTOMER_BUYER_MAP = {
     'Innovative Knitex Ltd.': ['Biscana'],
     'Eurotex Knitwear Ltd.': ['MAX'],
     'Knit Asia Ltd.': ["Kohl`s"],
+    'Green Life Knit Composite ltd.': ['ALLIGO'],
+    'Fame Apparels Limited': ['Defacto'],
 }
 
 BUYER_ALIASES = {
@@ -324,6 +332,7 @@ DELIVERY_ADDRESSES = {
         'Modele de Capital Ltd. (Dying Section)',
         'Goumati Knit Wears Ltd.',
     ],
+    'Fame Apparels Limited': ['Fame Apparels Limited', 'FAME LUXEWEAR LIMITED'],
     'Norp Knit Industries Ltd.': [
         'Norp Knit (Unit-2)',
         'Norp Knit (NU)',
@@ -392,6 +401,7 @@ DELIVERY_ADDRESSES = {
         'Innert Fabric & Quilt Limited',
         'Meek Sweater Limited',
     ],
+    'Green Life Knit Composite ltd.': ['Green Life Knit Composite ltd.'],
     'Mohsin Knitwears Ltd.': ['MOHSIN KNITWEAS LTD'],
     'Interstoff Apparels Ltd.': ['Interstoff Apparels Ltd.', 'South East Textiles (PVT.) Ltd.', 'Interstoff Clothing Ltd.'],
     'Knit Concept LTD.': ['Knit Concept LTD.', 'Minar Industries Ltd.'],

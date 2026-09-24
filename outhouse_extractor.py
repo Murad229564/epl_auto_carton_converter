@@ -20,6 +20,8 @@ from everbright_dunnes_extractor import combine_everbright_booking_files
 from intimate_maxdubai_extractor import combine_intimate_booking_files
 from eurotex_max_extractor import combine_eurotex_max_booking_files
 from knitasia_kohls_extractor import read_knitasia_style_excel
+from alligo_extractor import combine_alligo_booking_files
+from fame_defacto_extractor import read_fame_defacto_style_excel
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -396,6 +398,12 @@ def _wrap_knitasia(file_stream, filename, item_name_override, manual_ply, buyer_
     return read_knitasia_style_excel(file_stream, filename, item_name_override=item_name_override)
 
 
+def _wrap_fame_defacto(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_fame_defacto_style_excel(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
+
+
 # ---------------------------------------------------------------------------
 # CUSTOMER + BUYER -> extractor রেজিস্ট্রি। এখানে key হলো
 # (normalize(customer_name), normalize(buyer_name))। বায়ার-নির্বিশেষে একই
@@ -441,6 +449,7 @@ REGISTRY = {
     (_norm_key('Columbia Apparels Limited'), _norm_key('GU')): [_wrap_columbia],
     (_norm_key('Columbia Apparels Limited'), _norm_key('Target Australia')): [_wrap_columbia_target_australia],
     (_norm_key('Knit Asia Ltd.'), _norm_key("Kohl`s")): [_wrap_knitasia],
+    (_norm_key('Fame Apparels Limited'), _norm_key('Defacto')): [_wrap_fame_defacto],
 }
 
 
@@ -512,6 +521,14 @@ def _batch_everbright(files, item_name_override='', manual_ply=''):
     return combine_everbright_booking_files(files, item_name_override=item_name_override)
 
 
+def _batch_alligo(files, item_name_override='', manual_ply=''):
+    # Item Name/Ply সম্পূর্ণ ফাইলের নিজস্ব Item কলাম থেকেই ফিক্সড নিয়মে
+    # ঠিক হয় (Master Carton=5, Top Bottom/Divider=3) — UI সিলেকশন এখানে
+    # প্রযোজ্য না। Top Bottom/Divider ব্রেকডাউন হয় না, measurement-ওয়াইজ
+    # সামারি-লাইন হিসেবে বসে।
+    return combine_alligo_booking_files(files)
+
+
 def _batch_intimate(files, item_name_override='', manual_ply=''):
     # Item Name/Ply সম্পূর্ণ ফাইলের Item কলাম থেকেই ডিটেক্ট হয় (Carton/
     # 2 Leg Divider/Top Bottom) — UI সিলেকশন এখানে প্রযোজ্য না।
@@ -533,6 +550,7 @@ BATCH_REGISTRY = {
     (_norm_key('Everbright Sweater Ltd.'), _norm_key('Dunnes Stores')): _batch_everbright,
     (_norm_key('Intimate Attire Limited'), _norm_key('Max-Dubai')): _batch_intimate,
     (_norm_key('Eurotex Knitwear Ltd.'), _norm_key('MAX')): _batch_eurotex_max,
+    (_norm_key('Green Life Knit Composite ltd.'), _norm_key('ALLIGO')): _batch_alligo,
 }
 
 
