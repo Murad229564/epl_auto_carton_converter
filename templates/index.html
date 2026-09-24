@@ -378,7 +378,7 @@
           </div>
           <div id="manualDateWrap" style="display:none; margin-top:6px;">
             <input type="date" id="delivery_date" name="delivery_date">
-            <div class="field-err" id="date_err">Delivery Date অতীতের হতে পারবে না — আজ বা পরের যেকোনো দিন সিলেক্ট করুন</div>
+            <div class="field-err" id="date_err">আজ থেকে ন্যূনতম ৪ দিন পরে হতে হবে</div>
           </div>
           <div id="autoDateHint" class="hint">আজ+৭ দিন, শুক্রবার/সরকারি ছুটি বাদে</div>
         </div>
@@ -404,6 +404,21 @@
     <div class="card" id="pdfUploadCard">
       <div class="section-title">PDF আপলোড</div>
       <div class="hint" id="pdfUploadHint">শুধু EWO/Style/Ply/Measurement টেবিল-সহ এই PO ফরম্যাটই সাপোর্ট করবে</div>
+
+      <div class="field" id="methodField" style="display:none; margin-top:12px;">
+        <label>Extraction মেথড</label>
+        <div class="radio-group">
+          <label><input type="radio" name="extraction_method" value="rule_based" checked> Rule-Based</label>
+          <label><input type="radio" name="extraction_method" value="ai_based"> AI-Based (অচেনা/নতুন ফরম্যাট)</label>
+        </div>
+        <div class="hint">চেনা ফরম্যাট হলে Rule-Based দ্রুত ও নির্ভুল। PDF-টা অচেনা/নতুন কোনো buyer-এর ফরম্যাট হলে AI-Based বেছে নিন — একটু বেশি সময় লাগতে পারে।</div>
+      </div>
+
+      <div class="field full" id="aiInstructionWrap" style="display:none; margin-top:8px;">
+        <label for="ai_instruction">AI-কে অতিরিক্ত নির্দেশনা (ঐচ্ছিক)</label>
+        <input type="text" id="ai_instruction" name="ai_instruction" placeholder="যেমন: শুধু Measurement আর Qty দাও / এই PDF-এ Ref# আসলে Style No বোঝায়">
+        <div class="hint">ফাঁকা রাখলে AI নিজে থেকে পুরো ফরম্যাট বুঝে সবকিছু বের করার চেষ্টা করবে</div>
+      </div>
 
       <div class="drop" id="dropZone" style="margin-top:10px;">
         <p id="dropText">এখানে PDF টেনে আনুন (একাধিক ফাইল একসাথে দেওয়া যাবে), বা ক্লিক করে সিলেক্ট করুন</p>
@@ -548,6 +563,20 @@ const pdfUploadCard = document.getElementById('pdfUploadCard');
 const pdfUploadHint = document.getElementById('pdfUploadHint');
 const pdfSubmitCard = document.getElementById('pdfSubmitCard');
 const outhouseFileTypeField = document.getElementById('outhouseFileTypeField');
+const methodField = document.getElementById('methodField');
+const aiInstructionWrap = document.getElementById('aiInstructionWrap');
+const aiInstructionInput = document.getElementById('ai_instruction');
+
+function getExtractionMethod() {
+  const checked = document.querySelector('input[name="extraction_method"]:checked');
+  return checked ? checked.value : 'rule_based';
+}
+
+document.querySelectorAll('input[name="extraction_method"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    aiInstructionWrap.style.display = getExtractionMethod() === 'ai_based' ? 'block' : 'none';
+  });
+});
 
 function getOuthouseFileType() {
   const checked = document.querySelector('input[name="outhouse_file_type"]:checked');
@@ -576,6 +605,18 @@ function toggleOuthouseExcelCard() {
   pdfUploadCard.style.display = useExcel ? 'none' : 'block';
   pdfSubmitCard.style.display = useExcel ? 'none' : 'block';
   submitBtn.disabled = useExcel;
+
+  // Extraction মেথড (Rule-Based/AI-Based) সিলেক্টর শুধু /process এন্ডপয়েন্ট-ব্যবহারকারী
+  // "সাধারণ IN-HOUSE PDF" ফ্লো-তে প্রযোজ্য — OUT-HOUSE-এর তিনটা ফাইল-টাইপই (Trims
+  // Booking PDF, Excel, Kenpark PDF) আলাদা ডেডিকেটেড এন্ডপয়েন্টে যায়, method/
+  // ai_instruction ফিল্ড সেখানে ব্যবহৃতই হয় না — তাই সেসব ক্ষেত্রে এই সিলেক্টর
+  // দেখানো হয় না, এবং লুকানোর সময় নিরাপদে rule_based-এ রিসেট করে দেওয়া হয়।
+  methodField.style.display = isOuthouse ? 'none' : 'block';
+  if (isOuthouse) {
+    document.querySelector('input[name="extraction_method"][value="rule_based"]').checked = true;
+    aiInstructionWrap.style.display = 'none';
+    aiInstructionInput.value = '';
+  }
 
   pdfUploadHint.textContent = isKenparkPdfMode()
     ? 'Kenpark Bangladesh Apparel (Pvt.) Limited / Kenpark Bangladesh (Pvt.) Limited — Ralph Lauren-এর "PURCHASE ORDER (LOCAL FE)" PDF (শুধু ডিজিটালি-জেনারেট করা, স্ক্যান করা PDF সাপোর্ট করবে না)'
@@ -645,6 +686,7 @@ const manualDateWrap = document.getElementById('manualDateWrap');
 const autoDateHint = document.getElementById('autoDateHint');
 const deliveryDateInput = document.getElementById('delivery_date');
 const minAllowedDate = new Date();
+minAllowedDate.setDate(minAllowedDate.getDate() + 4);
 const minDateStr = minAllowedDate.toISOString().split('T')[0];
 deliveryDateInput.min = minDateStr;
 
@@ -833,6 +875,9 @@ function resetForm() {
   document.getElementById('remark_address').checked = false;
   forceOverrideCheck.checked = false;
   forceOverrideBox.classList.remove('active');
+  document.querySelector('input[name="extraction_method"][value="rule_based"]').checked = true;
+  aiInstructionWrap.style.display = 'none';
+  aiInstructionInput.value = '';
   pdfDeliveryHint.classList.remove('show');
   pdfDeliveryHint.innerHTML = '';
   [customerErr, buyerErr, dateErr, addressErr, poErr].forEach(el => el.style.display = 'none');
@@ -924,7 +969,12 @@ form.addEventListener('submit', async (e) => {
     formData.append('separate_output', separateOutput ? '1' : '');
   } else {
     for (const f of fileInput.files) formData.append('files', f);
-    formData.append('method', 'rule_based');
+    const extractionMethod = getExtractionMethod();
+    formData.append('method', extractionMethod);
+    if (extractionMethod === 'ai_based') {
+      const aiInstr = aiInstructionInput.value.trim();
+      if (aiInstr) formData.append('ai_instruction', aiInstr);
+    }
     formData.append('remark_place', document.getElementById('remark_place').checked ? '1' : '');
     formData.append('remark_address', document.getElementById('remark_address').checked ? '1' : '');
     formData.append('force_override', forceOverrideCheck.checked ? '1' : '');
@@ -940,9 +990,13 @@ form.addEventListener('submit', async (e) => {
 
   submitBtn.disabled = true;
   submitBtn.innerHTML = '<span class="spinner"></span>Processing...';
-  statusMsg.innerHTML = '<span class="spinner"></span>Excel ফাইল তৈরি হচ্ছে, একটু অপেক্ষা করুন...';
+  const usingAi = !trimsBookingMode && !kenparkPdfMode && getExtractionMethod() === 'ai_based';
+  const loadingText = usingAi
+    ? 'AI দিয়ে বিশ্লেষণ করা হচ্ছে, একটু বেশি সময় লাগতে পারে...'
+    : (fileInput.files.length > 1 ? `${fileInput.files.length}টা PDF প্রসেস হচ্ছে...` : 'Excel ফাইল তৈরি হচ্ছে, একটু অপেক্ষা করুন...');
+  statusMsg.innerHTML = `<span class="spinner"></span>${loadingText}`;
   statusMsg.className = 'status loading';
-  showOverlay(fileInput.files.length > 1 ? `${fileInput.files.length}টা PDF প্রসেস হচ্ছে...` : 'Excel ফাইল তৈরি হচ্ছে, একটু অপেক্ষা করুন...');
+  showOverlay(loadingText);
 
   try {
     const endpoint = trimsBookingMode ? '/autocarton/process_outhouse_trims_booking_pdf'

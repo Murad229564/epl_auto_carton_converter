@@ -73,7 +73,7 @@ def _build_dynamic_col_map(ws, header_row, window=4):
             col_map['pack_type'] = c
         elif label == 'description':
             col_map['reference'] = c
-        elif 'noofcartonbooking' in label:
+        elif 'ctnshipqty' in label:
             col_map['qty'] = c
         elif label.startswith('lengthcm') or label == 'length':
             col_map['length'] = c
