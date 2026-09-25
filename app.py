@@ -1353,9 +1353,7 @@ def autocarton_process_kenpark_pdf():
 
                         group_po = po_number_override
                         if not group_po:
-                            group_po_numbers = sorted({str(it.get('po_no', '')).strip() for it in items if str(it.get('po_no', '')).strip()})
-                            if len(group_po_numbers) == 1:
-                                group_po = group_po_numbers[0]
+                            group_po = derive_po_header(group_items)
 
                         out_name = _safe_filename_part(f"{os.path.splitext(filename)[0]}_Output.xlsx")
                         out_path = os.path.join(tmpdir, out_name)
