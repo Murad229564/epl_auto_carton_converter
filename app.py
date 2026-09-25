@@ -8,7 +8,7 @@ from flask import Flask, request, render_template, send_file, jsonify
 from extractor import process_pdf_rule_based, get_unique_delivery_info
 from ai_extractor import extract_with_ai
 from builder import build_combined_excel, validate_line_items, build_pdf_full_dump, build_excel_full_dump
-from outhouse_extractor import combine_booking_excels
+from outhouse_extractor import combine_booking_excels, derive_po_header
 from outhouse_pdf_extractor import process_trims_booking_pdf
 from ikl_biscana_extractor import read_ikl_biscana_pdf
 from kenpark_extractor import read_kenpark_pdf
@@ -952,12 +952,7 @@ def autocarton_process_outhouse_excel():
     if not po_number_override and not separate_output:
         source_files = {it.get('_source_file') for it in line_items if it.get('_source_file')}
         if len(source_files) <= 1:
-            extracted_po_numbers = sorted({
-                str(it.get('po_no', '')).strip() for it in line_items
-                if str(it.get('po_no', '')).strip()
-            })
-            if len(extracted_po_numbers) == 1:
-                po_number_override = extracted_po_numbers[0]
+            po_number_override = derive_po_header(line_items)
         else:
             warnings.append(
                 "⚠️ একাধিক ফাইল থেকে ভিন্ন ভিন্ন PO NO/Ship To পাওয়া গেছে — একটাই কম্বাইনড Excel-এর "
@@ -998,12 +993,7 @@ def autocarton_process_outhouse_excel():
 
                         group_po = po_number_override
                         if not group_po:
-                            group_po_numbers = sorted({
-                                str(it.get('po_no', '')).strip() for it in group_items
-                                if str(it.get('po_no', '')).strip()
-                            })
-                            if len(group_po_numbers) == 1:
-                                group_po = group_po_numbers[0]
+                            group_po = derive_po_header(group_items)
 
                         out_name = re.sub(
                             r'[\\/:*?"<>|]', '-',

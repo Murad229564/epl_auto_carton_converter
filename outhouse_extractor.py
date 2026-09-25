@@ -13,6 +13,7 @@ from ventura_extractor import read_ventura_style_excel
 from knitconcept_extractor import read_knitconcept_style_excel
 from columbia_extractor import read_columbia_style_excel
 from columbia_target_australia_extractor import read_columbia_target_australia_style_excel
+from columbia_target_usa_extractor import read_columbia_target_usa_style_excel
 from amigo_uniqlo_extractor import combine_amigo_booking_files
 from sinha_tatatrent_extractor import combine_sinha_booking_files
 from sterling_target_extractor import combine_sterling_booking_files
@@ -402,6 +403,12 @@ def _wrap_fame_defacto(file_stream, filename, item_name_override, manual_ply, bu
     return read_fame_defacto_style_excel(
         file_stream, filename,
         item_name_override=item_name_override, manual_ply=manual_ply)
+    
+    
+def _wrap_columbia_target_usa(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_columbia_target_usa_style_excel(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
 
 
 # ---------------------------------------------------------------------------
@@ -450,7 +457,24 @@ REGISTRY = {
     (_norm_key('Columbia Apparels Limited'), _norm_key('Target Australia')): [_wrap_columbia_target_australia],
     (_norm_key('Knit Asia Ltd.'), _norm_key("Kohl`s")): [_wrap_knitasia],
     (_norm_key('Fame Apparels Limited'), _norm_key('Defacto')): [_wrap_fame_defacto],
+    (_norm_key('Columbia Apparels Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
+    (_norm_key('Columbia Garments Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
 }
+
+
+def derive_po_header(line_items):
+    """একগুচ্ছ line_items থেকে ইউনিক po_no ভ্যালুগুলো (প্রথম-দেখা ক্রমে,
+    ফাঁকা/'N/A' বাদ দিয়ে) '/' দিয়ে জোড়া লাগিয়ে একটা হেডার-স্ট্রিং বানায় —
+    একটা PO থাকলে সেটাই ফেরত আসে, একাধিক PO থাকলে (যেমন Columbia
+    Target-USA ফরম্যাটে ভবিষ্যতে) সবগুলো '/' দিয়ে জোড়া লাগানো থাকে —
+    টেমপ্লেটের উপরের PO ফিল্ডে (কাস্টমার নামের পাশে) বসানোর জন্য। কোনো
+    ভ্যালিড PO না পেলে '' রিটার্ন করে।"""
+    seen = []
+    for item in line_items:
+        po = str(item.get('po_no') or '').strip()
+        if po and po.upper() != 'N/A' and po not in seen:
+            seen.append(po)
+    return '/'.join(seen)
 
 
 # ---------------------------------------------------------------------------

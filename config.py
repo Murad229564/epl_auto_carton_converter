@@ -35,6 +35,7 @@ CUSTOMERS = {
         "Ventura (HK) Trading Limited",
         "Knit Concept LTD.",
         "Columbia Apparels Limited",
+        "Columbia Garments Limited",
         "Amigo Bangladesh Ltd",
         "Sinha Knit and Denims Limited",
         "Sterling Styles Limited",
@@ -94,6 +95,7 @@ BUYERS = [
     "MAX",
     "ALLIGO",
     "Defacto",
+    "Target-USA",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -142,6 +144,7 @@ CARTON_VERIFIED_BUYERS = [
     "MAX",
     "ALLIGO",
     "Defacto",
+    "Target-USA",
 ]
 
 # ---------------------------------------------------------------------------
@@ -204,7 +207,8 @@ CUSTOMER_BUYER_MAP = {
     'Regency Three Limited': ['Ralph Lauren'],
     'Ventura (HK) Trading Limited': ['Kate Spade', 'Michael Kors', 'Coach', 'Le Sportsac', 'Vera Bradley'],
     'Knit Concept LTD.': ['SMART BLANKS BD'],
-    'Columbia Apparels Limited': ['GU', 'Target Australia'],
+    'Columbia Garments Limited': ['Target-USA'],
+    'Columbia Apparels Limited': ['GU', 'Target Australia', 'Target-USA'],
     'Amigo Bangladesh Ltd': ['Uniqlo'],
     'Sinha Knit and Denims Limited': ['Tata Trent'],
     'Sterling Styles Limited': ['Target'],
@@ -376,6 +380,10 @@ DELIVERY_ADDRESSES = {
         'Columbia Garments Limited.',
         'Genesis Fashions Ltd',
         'International Trading Services Ltd.',
+    ],
+    'Columbia Garments Limited': [
+    'Columbia Garments Limited', 'Columbia Apperals Limited',
+    'Genesis Fashion Limited', 'Sepal Group.', 'International Trading Services Ltd.',
     ],
     'Divine Fabrics Ltd.': ['Divine Fabrics LTD'],
     'Barnali Textile and Printing Industries (Pvt) Ltd.': ['Barnali Textile and Printing (Pvt) Ltd.'],
