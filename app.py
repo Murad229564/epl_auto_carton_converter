@@ -7,7 +7,7 @@ from flask import Flask, request, render_template, send_file, jsonify
 
 from extractor import process_pdf_rule_based, get_unique_delivery_info
 from builder import build_combined_excel, validate_line_items, build_pdf_full_dump, build_excel_full_dump
-from outhouse_extractor import combine_booking_excels
+from outhouse_extractor import combine_booking_excels, derive_po_header
 from outhouse_pdf_extractor import process_trims_booking_pdf
 from ikl_biscana_extractor import read_ikl_biscana_pdf
 from kenpark_extractor import read_kenpark_pdf
@@ -214,7 +214,6 @@ def process():
     delivery_mode = request.form.get('delivery_mode', 'auto').strip()
     delivery_date_manual = request.form.get('delivery_date', '').strip()
     delivery_address = request.form.get('delivery_address', '').strip()
-    method = request.form.get('method', 'rule_based')
     remark_place = request.form.get('remark_place', '').strip().lower() in ('1', 'true', 'on', 'yes')
     remark_address = request.form.get('remark_address', '').strip().lower() in ('1', 'true', 'on', 'yes')
     # ইমারজেন্সি ফোর্স ওভাররাইড: চেক করা থাকলে PDF-এর সাথে Customer/Buyer না
@@ -222,13 +221,6 @@ def process():
     # সাথে case-sensitive মেলার শর্ত অবশ্য তখনও বহাল থাকবে)।
     force_override = request.form.get('force_override', '').strip().lower() in ('1', 'true', 'on', 'yes')
     separate_output = request.form.get('separate_output', '').strip().lower() in ('1', 'true', 'on', 'yes')
-
-    if method not in ('rule_based',):
-        if method == 'ai_based':
-            return jsonify({
-                'error': 'AI-Based মেথড এখনো চালু করা হয়নি। শীঘ্রই আসছে — আপাতত Rule-Based ব্যবহার করুন।'
-            }), 501
-        return jsonify({'error': f'অজানা মেথড: {method}'}), 400
 
     # --- Buyer বাধ্যতামূলক ও case-sensitive লিস্ট-ম্যাচ ---
     buyer_error = validate_buyer(buyer_name)
@@ -266,7 +258,7 @@ def process():
         try:
             header_info, line_items, raw_df, summary_df = process_pdf_rule_based(io.BytesIO(pdf_bytes_raw))
         except Exception as e:
-            file_errors.append(f"{pdf_file.filename}: PDF পড়তে সমস্যা হয়েছে (rule-based): {str(e)}")
+            file_errors.append(f"{pdf_file.filename}: PDF পড়তে সমস্যা হয়েছে: {str(e)}")
             continue
 
         if not line_items:
@@ -885,18 +877,13 @@ def autocarton_process_outhouse_excel():
             f"⚠️ '{buyer_name}' buyer-এর OUT-HOUSE Excel ফরম্যাট এখনো নির্দিষ্টভাবে "
             f"যাচাই করা হয়নি — আউটপুট ভালোভাবে চেক করে নিন।"
         )
-        
+
     separate_output = request.form.get('separate_output', '').strip().lower() in ('1', 'true', 'on', 'yes')
 
     if not po_number_override and not separate_output:
         source_files = {it.get('_source_file') for it in line_items if it.get('_source_file')}
         if len(source_files) <= 1:
-            extracted_po_numbers = sorted({
-                str(it.get('po_no', '')).strip() for it in line_items
-                if str(it.get('po_no', '')).strip()
-            })
-            if len(extracted_po_numbers) == 1:
-                po_number_override = extracted_po_numbers[0]
+            po_number_override = derive_po_header(line_items)
         else:
             warnings.append(
                 "⚠️ একাধিক ফাইল থেকে ভিন্ন ভিন্ন PO NO/Ship To পাওয়া গেছে — একটাই কম্বাইনড Excel-এর "
@@ -910,7 +897,6 @@ def autocarton_process_outhouse_excel():
         'customer': customer_name,
         'buyer': buyer_name,
     }
-    
 
     if separate_output:
         groups, order = {}, []
@@ -937,12 +923,7 @@ def autocarton_process_outhouse_excel():
 
                         group_po = po_number_override
                         if not group_po:
-                            group_po_numbers = sorted({
-                                str(it.get('po_no', '')).strip() for it in group_items
-                                if str(it.get('po_no', '')).strip()
-                            })
-                            if len(group_po_numbers) == 1:
-                                group_po = group_po_numbers[0]
+                            group_po = derive_po_header(group_items)
 
                         out_name = re.sub(
                             r'[\\/:*?"<>|]', '-',
@@ -1085,7 +1066,6 @@ def autocarton_process_outhouse_trims_booking_pdf():
     if buyer_error:
         return jsonify({'error': buyer_error}), 422
 
-
     address_error = validate_delivery_address(customer_name, delivery_address)
     if address_error:
         return jsonify({'error': address_error}), 422
@@ -1195,7 +1175,6 @@ def autocarton_process_outhouse_trims_booking_pdf():
     for filename, hdr, items, raw_bytes in per_file_results:
         line_items.extend(items)
         full_dump.append(build_pdf_full_dump(io.BytesIO(raw_bytes), filename))
-
 
     warnings = validate_line_items(line_items)
     for e in file_errors:
