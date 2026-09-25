@@ -6,9 +6,8 @@ import tempfile
 from flask import Flask, request, render_template, send_file, jsonify
 
 from extractor import process_pdf_rule_based, get_unique_delivery_info
-from ai_extractor import extract_with_ai
 from builder import build_combined_excel, validate_line_items, build_pdf_full_dump, build_excel_full_dump
-from outhouse_extractor import combine_booking_excels, derive_po_header
+from outhouse_extractor import combine_booking_excels
 from outhouse_pdf_extractor import process_trims_booking_pdf
 from ikl_biscana_extractor import read_ikl_biscana_pdf
 from kenpark_extractor import read_kenpark_pdf
@@ -42,43 +41,6 @@ def _safe_filename_part(s):
     """ফাইলনেমে ব্যবহারের অযোগ্য ক্যারেক্টার ('/', '\\' ইত্যাদি) '-' দিয়ে বদলে দেয়,
     যাতে tempfile.TemporaryDirectory-এর ভেতরে ভুল সাব-ফোল্ডার তৈরির চেষ্টা না হয়।"""
     return re.sub(r'[\\/:*?"<>|]', '-', str(s or ''))
-
-
-def _process_pdf_ai_based(pdf_bytes_raw, extra_instruction=''):
-    """process_pdf_rule_based(file_stream) -> (header_info, line_items, raw_df,
-    summary_df)-এর সাথে সিগনেচার মিলিয়ে Gemini AI দিয়ে extract করে — যাতে
-    /process-এর নিচের পুরো লজিক (validation, force-override, Excel বিল্ড,
-    Zip ইত্যাদি) অপরিবর্তিত রেখেই rule-based/AI দুটো মেথডই একই কোড-পথ দিয়ে
-    চলতে পারে।
-
-    raw_df/summary_df AI-পথে পাওয়া যায় না (AI মূল PDF-এর কলাম স্ট্রাকচার
-    রিটার্ন করে না, শুধু ম্যাপ-করা ফিল্ড দেয়) — তাই None রিটার্ন হয়; Excel-এ
-    'PO Details'/'PO Summary' শীট ফাঁকা থাকবে, বাকি সব শীট (Sheet1, Raw Data,
-    Full Source Data, Warnings) ঠিকই বসবে।
-
-    AI নিজে যেসব warning/low-confidence flag দেয় (ai_extractor.py-এর
-    '_warnings'/'_low_confidence_rows') সেগুলো header_info-তে '_ai_warnings'/
-    '_ai_low_confidence_rows' key-তে বসিয়ে দেওয়া হয়, যাতে কলার পরে সেগুলো
-    সাধারণ warnings লিস্টে যোগ করে দিতে পারে।
-    """
-    parsed = extract_with_ai(pdf_bytes_raw, mime_type="application/pdf", extra_instruction=extra_instruction)
-
-    header = parsed.get('header', {}) or {}
-    header_info = {
-        'po_number': header.get('po_number', '') or '',
-        'customer': header.get('customer', '') or '',
-        'buyer': header.get('buyer', '') or '',
-        '_ai_warnings': parsed.get('_warnings', []),
-        '_ai_low_confidence_rows': parsed.get('_low_confidence_rows', []),
-    }
-
-    line_items = []
-    for item in parsed.get('line_items', []):
-        item = dict(item)
-        item.pop('confidence', None)  # শুধু ai_extractor.py-এর অভ্যন্তরীণ ব্যবহারের জন্য, Excel-এ লাগবে না
-        line_items.append(item)
-
-    return header_info, line_items, None, None
 
 
 # ---------------------------------------------------------------------------
@@ -260,12 +222,12 @@ def process():
     # সাথে case-sensitive মেলার শর্ত অবশ্য তখনও বহাল থাকবে)।
     force_override = request.form.get('force_override', '').strip().lower() in ('1', 'true', 'on', 'yes')
     separate_output = request.form.get('separate_output', '').strip().lower() in ('1', 'true', 'on', 'yes')
-    # AI-Based মেথডে ব্যবহারকারী চাইলে অতিরিক্ত নির্দেশনা দিতে পারেন (যেমন
-    # "শুধু measurement আর qty দাও", "এই ফাইলে Ref# আসলে Style No বোঝায়") —
-    # সেটা ai_extractor.py-এর prompt-এর শেষে জুড়ে দেওয়া হয়।
-    ai_instruction = request.form.get('ai_instruction', '').strip()
 
-    if method not in ('rule_based', 'ai_based'):
+    if method not in ('rule_based',):
+        if method == 'ai_based':
+            return jsonify({
+                'error': 'AI-Based মেথড এখনো চালু করা হয়নি। শীঘ্রই আসছে — আপাতত Rule-Based ব্যবহার করুন।'
+            }), 501
         return jsonify({'error': f'অজানা মেথড: {method}'}), 400
 
     # --- Buyer বাধ্যতামূলক ও case-sensitive লিস্ট-ম্যাচ ---
@@ -302,13 +264,9 @@ def process():
     for pdf_file in files:
         pdf_bytes_raw = pdf_file.read()
         try:
-            if method == 'ai_based':
-                header_info, line_items, raw_df, summary_df = _process_pdf_ai_based(pdf_bytes_raw, ai_instruction)
-            else:
-                header_info, line_items, raw_df, summary_df = process_pdf_rule_based(io.BytesIO(pdf_bytes_raw))
+            header_info, line_items, raw_df, summary_df = process_pdf_rule_based(io.BytesIO(pdf_bytes_raw))
         except Exception as e:
-            method_label = 'AI-based' if method == 'ai_based' else 'rule-based'
-            file_errors.append(f"{pdf_file.filename}: PDF পড়তে সমস্যা হয়েছে ({method_label}): {str(e)}")
+            file_errors.append(f"{pdf_file.filename}: PDF পড়তে সমস্যা হয়েছে (rule-based): {str(e)}")
             continue
 
         if not line_items:
@@ -358,21 +316,6 @@ def process():
                 )
         return notes
 
-    def _build_ai_extraction_notes(header_info, filename):
-        """AI (Gemini) extraction হলে header_info-তে বসানো '_ai_warnings'/
-        '_ai_low_confidence_rows' থেকে দৃশ্যমান warning লাইন বানায়। rule-based
-        হলে এই key-গুলো থাকে না, তাই স্বাভাবিকভাবেই খালি লিস্ট ফেরত আসবে।"""
-        notes = []
-        for w in header_info.get('_ai_warnings', []):
-            notes.append(f"⚠️ AI Extraction ({filename}): {w}")
-        low_conf_rows = header_info.get('_ai_low_confidence_rows', [])
-        if low_conf_rows:
-            notes.append(
-                f"ℹ️ AI কম কনফিডেন্স নিয়ে অনুমান করেছে ({filename}): {', '.join(low_conf_rows)} "
-                f"— একবার চোখ বুলিয়ে ঠিক আছে কিনা দেখে নিন।"
-            )
-        return notes
-
     verified_warning = None
     if buyer_name not in CARTON_VERIFIED_BUYERS:
         verified_warning = (
@@ -395,7 +338,6 @@ def process():
                         if verified_warning:
                             warnings.append(verified_warning)
                         warnings.extend(_build_force_override_notes(header_info))
-                        warnings.extend(_build_ai_extraction_notes(header_info, filename))
                         total_warn_count += len(warnings)
 
                         base_name = _safe_filename_part(os.path.splitext(filename)[0])
@@ -441,17 +383,14 @@ def process():
     combined_raw_df = per_file_results[0][3]
     combined_summary_df = per_file_results[0][4]
     force_override_notes = []
-    ai_extraction_notes = []
     for filename, header_info, line_items, raw_df, summary_df, pdf_bytes_raw in per_file_results:
         combined_line_items.extend(line_items)
         combined_full_dump.append(build_pdf_full_dump(io.BytesIO(pdf_bytes_raw), filename))
         force_override_notes.extend(_build_force_override_notes(header_info))
-        ai_extraction_notes.extend(_build_ai_extraction_notes(header_info, filename))
 
     warnings = validate_line_items(combined_line_items)
     if verified_warning:
         warnings.append(verified_warning)
-    warnings.extend(ai_extraction_notes)
     warnings.extend(force_override_notes)
     for e in file_errors:
         warnings.append(f"⚠️ এই ফাইলটা স্কিপ হয়েছে: {e}")
@@ -952,7 +891,12 @@ def autocarton_process_outhouse_excel():
     if not po_number_override and not separate_output:
         source_files = {it.get('_source_file') for it in line_items if it.get('_source_file')}
         if len(source_files) <= 1:
-            po_number_override = derive_po_header(line_items)
+            extracted_po_numbers = sorted({
+                str(it.get('po_no', '')).strip() for it in line_items
+                if str(it.get('po_no', '')).strip()
+            })
+            if len(extracted_po_numbers) == 1:
+                po_number_override = extracted_po_numbers[0]
         else:
             warnings.append(
                 "⚠️ একাধিক ফাইল থেকে ভিন্ন ভিন্ন PO NO/Ship To পাওয়া গেছে — একটাই কম্বাইনড Excel-এর "
@@ -993,7 +937,12 @@ def autocarton_process_outhouse_excel():
 
                         group_po = po_number_override
                         if not group_po:
-                            group_po = derive_po_header(group_items)
+                            group_po_numbers = sorted({
+                                str(it.get('po_no', '')).strip() for it in group_items
+                                if str(it.get('po_no', '')).strip()
+                            })
+                            if len(group_po_numbers) == 1:
+                                group_po = group_po_numbers[0]
 
                         out_name = re.sub(
                             r'[\\/:*?"<>|]', '-',
