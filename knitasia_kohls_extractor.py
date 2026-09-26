@@ -144,6 +144,8 @@ def read_knitasia_style_excel(file_stream, filename='', item_name_override='Mast
 
     for sn in wb.sheetnames:
         ws = wb[sn]
+        if ws.sheet_state != 'visible':
+            continue  # হাইড/ভেরি-হাইড শীট — এই শীটের কোনো ডাটাই নেওয়া হবে না
         header_row = _find_header_row(ws)
         if header_row is None:
             continue
@@ -219,7 +221,7 @@ def read_knitasia_style_excel(file_stream, filename='', item_name_override='Mast
                 'color': '',
                 'size': '',
                 'delivery_date': '',
-                'measurement_unit': 'Inch',
+                'measurement_unit': 'Cm',
                 'delivery_place_pdf': '',
                 'delivery_address_pdf': '',
                 '_sheet': sn,
