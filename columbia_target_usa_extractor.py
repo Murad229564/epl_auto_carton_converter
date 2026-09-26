@@ -191,6 +191,14 @@ def read_columbia_target_usa_style_excel(file_stream, filename='', item_name_ove
 
     r = header_row + 1
     max_row = ws.max_row
+    # কিছু সোর্স ফাইলে ws.max_row বাস্তব ডাটার তুলনায় বিশাল হয়ে যায় (যেমন
+    # ১০+ লাখ রো, পুরো কলামজুড়ে ফরম্যাটিং প্রয়োগ করা থাকলে Excel পুরো
+    # রেঞ্জটাকেই 'ব্যবহৃত এরিয়া' ধরে নেয়) — সেই পুরো রেঞ্জ সেল-বাই-সেল
+    # স্ক্যান করলে রিকোয়েস্ট টাইমআউট হয়ে যায়। তাই আসল ডাটা-রো (Po No/qty/
+    # measurement যেকোনো একটা থাকা রো) না পেয়ে একটানা অনেক রো ফাঁকা গেলে
+    # ধরে নেওয়া হয় টেবিল শেষ, বাকি রো আর স্ক্যান করা হয় না।
+    consecutive_blank = 0
+    BLANK_STOP_THRESHOLD = 100
     while r <= max_row:
         if r in hidden_rows:
             r += 1
@@ -198,8 +206,12 @@ def read_columbia_target_usa_style_excel(file_stream, filename='', item_name_ove
 
         po_val = ws.cell(row=r, column=po_col).value
         if po_val is None or not _clean(po_val):
+            consecutive_blank += 1
+            if consecutive_blank >= BLANK_STOP_THRESHOLD:
+                break
             r += 1
             continue  # Po No ফাঁকা — 'Total Qty (Pcs)' সামারি-রো বা খালি রো
+        consecutive_blank = 0
 
         qty_val = ws.cell(row=r, column=qty_col).value
         if not _is_num(qty_val) or float(qty_val) <= 0:
