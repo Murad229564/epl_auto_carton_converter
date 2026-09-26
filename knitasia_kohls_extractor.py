@@ -221,7 +221,7 @@ def read_knitasia_style_excel(file_stream, filename='', item_name_override='Mast
                 'color': '',
                 'size': '',
                 'delivery_date': '',
-                'measurement_unit': 'Cm',
+                'measurement_unit': 'Inch',
                 'delivery_place_pdf': '',
                 'delivery_address_pdf': '',
                 '_sheet': sn,
