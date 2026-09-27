@@ -132,12 +132,18 @@ def _build_col_map(ws, header_row, hidden_cols):
 
 
 def _detect_elastic(ws, max_scan=5):
-    """শিটের উপরের টাইটেল-এরিয়ায় (রো ১ থেকে max_scan) 'ELASTIC' শব্দ
-    থাকলে True রিটার্ন করে (Item Name override করার জন্য)।"""
+    """শিটের উপরের টাইটেল-এরিয়ায় (রো ১ থেকে max_scan) 'ELASTIC' বা
+    'HANGER' শব্দ থাকলে True রিটার্ন করে (Item Name override করার জন্য)।
+    এছাড়া হেডার রো-তে একটা 'Hanger Position' নামের কলাম থাকলেও (অতিরিক্ত
+    সহায়ক সংকেত, কিছু ফাইলে টাইটেল-এ 'Hanger' শব্দ না থাকলেও এই কলাম
+    দিয়েই বোঝা যায়) True রিটার্ন করে।"""
     for r in range(1, max_scan + 1):
         for c in range(1, ws.max_column + 1):
             v = ws.cell(row=r, column=c).value
-            if v is not None and 'elastic' in str(v).lower():
+            if v is None:
+                continue
+            t = str(v).lower()
+            if 'elastic' in t or 'hanger' in t:
                 return True
     return False
 
