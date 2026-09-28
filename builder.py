@@ -178,13 +178,49 @@ def _matches_u_divider_measurement(length, width):
 def build_excel_full_dump(file_stream, filename):
     """একটা আপলোড করা Excel ফাইলের (হাইড শিট-সহ, সবগুলো শিট) প্রতিটা
     সেল raw আকারে বের করে — 'Full Source Data' শীটে বসানোর জন্য। কোনো
-    ডাটা প্রসেসিং/ম্যাপিং হয় না, একদম যা আছে তাই।"""
+    ডাটা প্রসেসিং/ম্যাপিং হয় না, একদম যা আছে তাই।
+
+    .xlsx: openpyxl দিয়ে সরাসরি রো-বাই-রো স্ট্রিম করে পড়া হয় (read_only
+    মোডে), আর একটানা অনেক (BLANK_STOP_THRESHOLD) সম্পূর্ণ-ফাঁকা রো পেলে
+    সেই শিট স্ক্যান থামিয়ে দেওয়া হয় — কিছু সোর্স ফাইলে (যেমন Columbia
+    Target-USA-র 'Carton & Poly Order Sheet') পুরো কলামজুড়ে ফরম্যাটিং
+    প্রয়োগ করা থাকলে max_row ১০ লাখ+ হয়ে যায় (আসল ডাটা মাত্র কয়েক ডজন
+    রো-তে শেষ হলেও), আগে pandas পুরোটাই DataFrame-এ লোড করার চেষ্টা করত
+    বলে রিকোয়েস্ট টাইমআউট/হ্যাং হয়ে যেত।
+
+    .xls: openpyxl পুরনো বাইনারি .xls ফরম্যাট পড়তে পারে না, তাই এখানে
+    আগের pandas-based পথটাই রাখা হয়েছে (এই bloated-max-row সমস্যা .xls-এ
+    বাস্তবে দেখা যায় না — পুরনো ফরম্যাট, সাধারণত অনেক ছোট সাইজের হয়)।
+    """
+    BLANK_STOP_THRESHOLD = 200
     file_stream.seek(0)
-    sheets = pd.read_excel(file_stream, sheet_name=None, header=None)
+
+    if filename.lower().endswith('.xls'):
+        sheets = pd.read_excel(file_stream, sheet_name=None, header=None)
+        out = {}
+        for sheet_name, df in sheets.items():
+            df = df.where(pd.notna(df), None)
+            out[sheet_name] = df.values.tolist()
+        return {'filename': filename, 'type': 'excel', 'sheets': out}
+
+    wb = load_workbook(file_stream, data_only=True, read_only=True)
     out = {}
-    for sheet_name, df in sheets.items():
-        df = df.where(pd.notna(df), None)
-        out[sheet_name] = df.values.tolist()
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        rows_out = []
+        consecutive_blank = 0
+        for row in ws.iter_rows(values_only=True):
+            is_blank = all(v is None or (isinstance(v, str) and v.strip() == '') for v in row)
+            if is_blank:
+                consecutive_blank += 1
+                if consecutive_blank >= BLANK_STOP_THRESHOLD:
+                    break
+                rows_out.append(list(row))
+                continue
+            consecutive_blank = 0
+            rows_out.append(list(row))
+        out[sheet_name] = rows_out
+    wb.close()
     return {'filename': filename, 'type': 'excel', 'sheets': out}
 
 
