@@ -23,6 +23,7 @@ from eurotex_max_extractor import combine_eurotex_max_booking_files
 from knitasia_kohls_extractor import read_knitasia_style_excel
 from alligo_extractor import combine_alligo_booking_files
 from fame_defacto_extractor import read_fame_defacto_style_excel
+from buyers_ca.dispatch import combine_ca_booking_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -520,32 +521,40 @@ def derive_po_header(line_items):
 # আসল ফাংশনের সাথে মিলিয়ে নেয় (Amigo-র নিজস্ব ফাংশন item_name/ply নেয় না,
 # তাই ওই wrapper-এ সেগুলো উপেক্ষা করা হয়)।
 # ---------------------------------------------------------------------------
-def _batch_amigo(files, item_name_override='', manual_ply=''):
+def _batch_amigo(files, item_name_override='', manual_ply='', customer_name=''):
     # Amigo-র নিজস্ব ফরম্যাটে Item Name/Ply সবসময় নির্দিষ্ট (Master Carton
     # / Top Bottom / Divider, extractor নিজেই ঠিক করে) — UI সিলেকশন এখানে
     # প্রযোজ্য না, তাই ইচ্ছাকৃতভাবে উপেক্ষা করা হচ্ছে।
     return combine_amigo_booking_files(files)
 
 
-def _batch_sinha(files, item_name_override='', manual_ply=''):
+def _batch_sinha(files, item_name_override='', manual_ply='', customer_name=''):
     return combine_sinha_booking_files(files, item_name_override=item_name_override, manual_ply=manual_ply)
 
 
-def _batch_sterling(files, item_name_override='', manual_ply=''):
+def _batch_sterling(files, item_name_override='', manual_ply='', customer_name=''):
     # Sterling-এর নিজস্ব ফরম্যাটে Item Name (ELASTIC নোট) আর Ply (5/3,
     # হেডারেই লেখা) সম্পূর্ণ ফাইলের কনটেন্ট থেকে ডিটেক্ট হয় — UI সিলেকশন
     # এখানে প্রযোজ্য না, তাই ইচ্ছাকৃতভাবে উপেক্ষা করা হচ্ছে।
     return combine_sterling_booking_files(files)
 
 
-def _batch_everbright(files, item_name_override='', manual_ply=''):
+def _batch_ca(files, item_name_override='', manual_ply='', customer_name=''):
+    # C&A বায়ারের নিয়ম (কোড-ম্যাচিং, এক্সেপশনাল-প্রাইস, /TRI ইত্যাদি) সব
+    # buyers_ca ফোল্ডারে আলাদাভাবে রাখা — এখানে শুধু কল করা হচ্ছে।
+    return combine_ca_booking_files(
+        files, item_name_override=item_name_override, manual_ply=manual_ply,
+        customer_name=customer_name, buyer_name='C&A BUYING GMBH & CO. KG')
+
+
+def _batch_everbright(files, item_name_override='', manual_ply='', customer_name=''):   
     # Master Carton-এর Item Name UI থেকেই আসে (item_name_override
     # ব্যবহার হয়), কিন্তু Ply এখানে সবসময় ফিক্সড (Master=5, Divider=3),
     # তাই manual_ply উপেক্ষা করা হচ্ছে।
     return combine_everbright_booking_files(files, item_name_override=item_name_override)
 
 
-def _batch_alligo(files, item_name_override='', manual_ply=''):
+def _batch_alligo(files, item_name_override='', manual_ply='', customer_name=''):
     # Item Name/Ply সম্পূর্ণ ফাইলের নিজস্ব Item কলাম থেকেই ফিক্সড নিয়মে
     # ঠিক হয় (Master Carton=5, Top Bottom/Divider=3) — UI সিলেকশন এখানে
     # প্রযোজ্য না। Top Bottom/Divider ব্রেকডাউন হয় না, measurement-ওয়াইজ
@@ -553,13 +562,13 @@ def _batch_alligo(files, item_name_override='', manual_ply=''):
     return combine_alligo_booking_files(files)
 
 
-def _batch_intimate(files, item_name_override='', manual_ply=''):
+def _batch_intimate(files, item_name_override='', manual_ply='', customer_name=''):
     # Item Name/Ply সম্পূর্ণ ফাইলের Item কলাম থেকেই ডিটেক্ট হয় (Carton/
     # 2 Leg Divider/Top Bottom) — UI সিলেকশন এখানে প্রযোজ্য না।
     return combine_intimate_booking_files(files)
 
 
-def _batch_eurotex_max(files, item_name_override='', manual_ply=''):
+def _batch_eurotex_max(files, item_name_override='', manual_ply='', customer_name=''):
     # Item Name ডিফল্ট Master Carton, তবে ELASTIC/HANGER শব্দ পেলে
     # 'Elastic Hanger Carton' এ auto-detect হয় (extractor নিজেই করে) —
     # item_name_override শুধু ডিফল্ট-এর জন্য ব্যবহার হয়। Ply এই ফরম্যাটে
@@ -575,6 +584,9 @@ BATCH_REGISTRY = {
     (_norm_key('Intimate Attire Limited'), _norm_key('Max-Dubai')): _batch_intimate,
     (_norm_key('Eurotex Knitwear Ltd.'), _norm_key('MAX')): _batch_eurotex_max,
     (_norm_key('Green Life Knit Composite ltd.'), _norm_key('ALLIGO')): _batch_alligo,
+    (_norm_key('Fakir Fashion Limited'), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
+    (_norm_key('Epyllion Knitwears Limited'), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
+    (_norm_key("D&S Pretty Fashions Ltd."), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
 }
 
 
@@ -616,7 +628,7 @@ def combine_booking_excels(files, item_name_override='Master Carton', manual_ply
     c = _norm_key(customer_name)
     b = _norm_key(buyer_name)
     if (c, b) in BATCH_REGISTRY:
-        return BATCH_REGISTRY[(c, b)](files, item_name_override, manual_ply)
+        return BATCH_REGISTRY[(c, b)](files, item_name_override, manual_ply, customer_name=customer_name)
 
     chain = _get_extractor_chain(customer_name, buyer_name)
     combined = []

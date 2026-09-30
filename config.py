@@ -46,6 +46,9 @@ CUSTOMERS = {
         "Knit Asia Ltd.",
         "Green Life Knit Composite ltd.",
         "Fame Apparels Limited",
+        "Fakir Fashion Limited",
+        "D&S Pretty Fashions Ltd.",
+        "Epyllion Knitwears Limited",
     ],
 }
 
@@ -190,7 +193,7 @@ _IN_HOUSE_BUYERS = [
 CUSTOMER_BUYER_MAP = {
     # --- IN-HOUSE — সব IN-HOUSE কাস্টমারের জন্য একই বায়ার-লিস্ট ---
     'Epyllion Style Limited': _IN_HOUSE_BUYERS,
-    'Epyllion Knitwears Limited': _IN_HOUSE_BUYERS,
+    'Epyllion Knitwears Limited': _IN_HOUSE_BUYERS + ['C&A BUYING GMBH & CO. KG'],
     'Dekko Knitwears Limited': _IN_HOUSE_BUYERS,
     'Dazzling Dresses Ltd.': _IN_HOUSE_BUYERS,
 
@@ -219,6 +222,8 @@ CUSTOMER_BUYER_MAP = {
     'Knit Asia Ltd.': ["Kohl`s"],
     'Green Life Knit Composite ltd.': ['ALLIGO'],
     'Fame Apparels Limited': ['Defacto'],
+    'Fakir Fashion Limited': ['C&A BUYING GMBH & CO. KG'],
+    'D&S Pretty Fashions Ltd.': ['C&A BUYING GMBH & CO. KG'],
 }
 
 BUYER_ALIASES = {
@@ -424,7 +429,15 @@ DELIVERY_ADDRESSES = {
     'Knit Asia Limited (RMG Unit)',
     'Knit Asia',
     'JM Fabrics Limited',
-],
+    ],
+    'Fakir Fashion Limited': ['Fakir Fashion Ltd.'],
+    'D&S Pretty Fashions Ltd.': [
+        'D&S Pretty Fashions Ltd.',
+        'Pretty Sweaters Ltd',
+        'Oxford Shirts Ltd.',
+        'Innova Apparels Solutions Ltd.',
+        'D&S Pretty (Wearhouse)',
+    ],
 }
 
 # ---------------------------------------------------------------------------

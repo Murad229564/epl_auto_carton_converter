@@ -1,0 +1,118 @@
+"""
+C&A বায়ারের কমন নিয়ম — কাস্টমার-নির্বিশেষে একই। প্রতিটা কাস্টমার
+extractor শুধু raw_item ডিক্ট বানায় (কাঁচা style/code-text/measurement/
+qty), তারপর এই ফাংশন C&A-স্পেসিফিক সব নিয়ম (কোড-ম্যাচ, এক্সেপশনাল-প্রাইস,
+/TRI, qty রাউন্ড) একবারই প্রয়োগ করে — নতুন কাস্টমার যোগ করলে এই ফাইলে
+কিছু বদলাতে হবে না।
+
+raw_item-এর প্রত্যাশিত key:
+    raw_style          (str, আবশ্যক) — /TRI যোগ করার আগের স্টাইল টেক্সট
+    raw_code_text      (str, না থাকলে '') — কোড-বহনকারী কলামের raw টেক্সট
+    length_cm/width_cm/height_cm  (সংখ্যা, আবশ্যক) — ইতিমধ্যে cm-এ
+    qty                (সংখ্যা, আবশ্যক)
+    ewo_no             (str, ঐচ্ছিক)
+    ply                (str, ঐচ্ছিক — না দিলে ca_config.DEFAULT_PLY)
+    item_name          (str, ঐচ্ছিক — না দিলে 'Master Carton')
+    pack_type/reference/delivery_date  (ঐচ্ছিক)
+    _sheet/_source_file (ঐচ্ছিক, ট্রেসিং-এর জন্য)
+"""
+from . import ca_config as cfg
+from .ca_calc import match_code, check_measurement_match, exceptional_price
+
+
+def _fmt_num(v):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return ''
+    return str(int(f)) if f == int(f) else str(round(f, 3))
+
+
+def mm_from_cm(v):
+    return round(float(v) * 10)
+
+
+def apply_ca_rules(raw_item, lookup, item_name_override=None, manual_ply=None):
+    """একটা raw_item-কে canonical লাইন-আইটেম ডিক্টে রূপান্তর করে।
+    item_name_override/manual_ply দেওয়া থাকলে (UI থেকে) raw_item-এর
+    নিজস্ব item_name/ply-এর চেয়ে অগ্রাধিকার পায় — ইউজার-কনফার্মড নিয়ম
+    অনুযায়ী এই বায়ারের ক্ষেত্রে Item Name/Ply সবসময় UI থেকেই আসে।
+    রিটার্ন করে (line_item_dict, warnings_list)।"""
+    warnings = []
+
+    raw_style = str(raw_item.get('raw_style') or '').strip()
+    style_no = f"{raw_style}{cfg.STYLE_SUFFIX}" if raw_style else (cfg.EXCEPTIONAL_TEXT)
+
+    l_cm = raw_item.get('length_cm')
+    w_cm = raw_item.get('width_cm')
+    h_cm = raw_item.get('height_cm')
+    if l_cm in (None, '') or w_cm in (None, '') or h_cm in (None, ''):
+        warnings.append(f"স্টাইল '{raw_style}': measurement পাওয়া যায়নি — এই রো স্কিপ করা হয়েছে।")
+        return None, warnings
+
+    l_mm, w_mm, h_mm = mm_from_cm(l_cm), mm_from_cm(w_cm), mm_from_cm(h_cm)
+
+    raw_code_text = raw_item.get('raw_code_text', '')
+    entry, code_warn = match_code(raw_code_text, lookup)
+    if code_warn:
+        warnings.append(f"স্টাইল '{raw_style}': {code_warn}")
+
+    if entry is not None:
+        po_field = entry['code']
+        remarks_val = entry['price']
+        mism = check_measurement_match(entry, l_mm, w_mm, h_mm)
+        if mism:
+            warnings.append(f"স্টাইল '{raw_style}': {mism}")
+    else:
+        po_field = cfg.EXCEPTIONAL_TEXT
+        remarks_val = str(exceptional_price(l_mm, w_mm, h_mm))
+
+    qty_val = raw_item.get('qty')
+    try:
+        qty_final = round(float(qty_val))
+    except (TypeError, ValueError):
+        warnings.append(f"স্টাইল '{raw_style}': Qty পাওয়া যায়নি/সংখ্যা না — এই রো স্কিপ করা হয়েছে।")
+        return None, warnings
+
+    line_item = {
+        'item_name': item_name_override or raw_item.get('item_name') or 'Master Carton',
+        'ewo_no': raw_item.get('ewo_no') or 'N/A',
+        'style_no': style_no,
+        'po_no': po_field,
+        'length': _fmt_num(l_cm),
+        'width': _fmt_num(w_cm),
+        'height': _fmt_num(h_cm),
+        'ply': manual_ply or raw_item.get('ply') or cfg.DEFAULT_PLY,
+        'qty': qty_final,
+        'pack_type': raw_item.get('pack_type', ''),
+        'reference': raw_item.get('reference', ''),
+        'remarks': remarks_val,
+        'color': '',
+        'size': '',
+        'delivery_date': raw_item.get('delivery_date', ''),
+        'measurement_unit': 'Cm',
+        'delivery_place_pdf': '',
+        'delivery_address_pdf': '',
+        '_sheet': raw_item.get('_sheet', ''),
+        '_source_file': raw_item.get('_source_file', ''),
+    }
+    return line_item, warnings
+
+
+def check_price_list_validity(price_list):
+    """প্রাইস-লিস্টের 'valid_until' তারিখ পার হয়ে গেলে একটা ওয়ার্নিং
+    রিটার্ন করে (থাকলে), নাহলে None।"""
+    import datetime
+    valid_until = price_list.get('valid_until')
+    if not valid_until:
+        return None
+    try:
+        d = datetime.date.fromisoformat(valid_until)
+    except ValueError:
+        return None
+    if datetime.date.today() > d:
+        return (
+            f"⚠️ C&A প্রাইস লিস্টের মেয়াদ ({valid_until}) পার হয়ে গেছে — "
+            f"নতুন কোটেশন PDF দিয়ে buyers_ca/build_price_list.py আবার চালান।"
+        )
+    return None
