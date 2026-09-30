@@ -35,14 +35,25 @@ def _extract_base_and_perf(text):
 
 
 def build_lookup(price_list):
-    """price_list (ca_price_list.json-এর ডিক্ট) থেকে (base_code, is_perf)
-    -> item এর লুকআপ ডিক্ট বানায়।"""
-    lookup = {}
+    """price_list (ca_price_list.json-এর ডিক্ট) থেকে দুই রকম লুকআপ একসাথে
+    বানায়:
+      - by_code: (base_code, is_perf) -> item — কোড দেখে খোঁজার জন্য
+      - by_measurement: (l_mm, w_mm, h_mm) -> [code, code, ...] — বুকিং-এ
+        কোনো কোড লেখা না থাকলেও (ফাঁকা/Regular ইত্যাদি), শুধু মাপ দিয়ে
+        আমাদের লিস্টে কোনো পরিচিত সাইজের সাথে মিলে যায় কিনা চেক করার জন্য
+        (মিললে ওয়ার্নিং দেওয়া হয়, কোড অটো-বসানো হয় না — শুধু সতর্ক করা)।
+    রিটার্ন করে {'by_code': {...}, 'by_measurement': {...}} — একটাই ডিক্ট,
+    caller (dispatch.py) এটাই একবার বানিয়ে সব কাস্টমার extractor-কে পাস
+    করে দেয়; extractor-গুলোর ভেতরের গঠন জানার দরকার নেই।"""
+    by_code = {}
+    by_measurement = {}
     for item in price_list.get('items', []):
         base, perf = _extract_base_and_perf(item['code'])
         if base:
-            lookup[(base, perf)] = item
-    return lookup
+            by_code[(base, perf)] = item
+        key = (item['l_mm'], item['w_mm'], item['h_mm'])
+        by_measurement.setdefault(key, []).append(item['code'])
+    return {'by_code': by_code, 'by_measurement': by_measurement}
 
 
 def match_code(raw_code_text, lookup):
@@ -51,21 +62,30 @@ def match_code(raw_code_text, lookup):
     (None, None) — কোনো ওয়ার্নিং ছাড়াই, কারণ এটাই স্বাভাবিক (এক্সেপশনাল
     হবে)। C&A-প্যাটার্নের কোড দেখতে পেলে কিন্তু লিস্টে না থাকলে ওয়ার্নিং
     সহ (None, warning)।"""
+    by_code = lookup['by_code']
     if not raw_code_text or not str(raw_code_text).strip():
         return None, None
     base, perf = _extract_base_and_perf(raw_code_text)
     if not base:
         return None, None
-    entry = lookup.get((base, perf))
+    entry = by_code.get((base, perf))
     if entry is not None:
         return entry, None
-    alt = lookup.get((base, not perf))
+    alt = by_code.get((base, not perf))
     if alt is not None:
         return None, (
             f"কোড '{raw_code_text}' দেওয়া আছে কিন্তু Perf/non-Perf মিলছে না — "
             f"কাছাকাছি '{alt['code']}' পাওয়া গেছে, ম্যানুয়ালি চেক করুন।"
         )
     return None, f"কোড '{raw_code_text}' আমাদের C&A প্রাইস লিস্টে পাওয়া যায়নি — ম্যানুয়ালি চেক করুন।"
+
+
+def find_codes_by_measurement(l_mm, w_mm, h_mm, lookup):
+    """কোনো কোড না দেওয়া থাকলেও (এক্সেপশনাল হয়ে যাওয়ার আগে), শুধু L/W/H
+    (mm) দিয়ে আমাদের প্রাইস-লিস্টে হুবহু মিলে এমন কোড(গুলো) খুঁজে দেয়
+    (একই মাপে Perf/non-Perf দুটোই থাকতে পারে, তাই লিস্ট রিটার্ন হয়)।
+    কিছু না মিললে খালি লিস্ট।"""
+    return lookup['by_measurement'].get((l_mm, w_mm, h_mm), [])
 
 
 def check_measurement_match(entry, l_mm, w_mm, h_mm):

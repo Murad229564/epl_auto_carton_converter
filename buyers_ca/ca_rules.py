@@ -17,7 +17,7 @@ raw_item-এর প্রত্যাশিত key:
     _sheet/_source_file (ঐচ্ছিক, ট্রেসিং-এর জন্য)
 """
 from . import ca_config as cfg
-from .ca_calc import match_code, check_measurement_match, exceptional_price
+from .ca_calc import match_code, check_measurement_match, exceptional_price, find_codes_by_measurement
 
 
 def _fmt_num(v):
@@ -66,6 +66,21 @@ def apply_ca_rules(raw_item, lookup, item_name_override=None, manual_ply=None):
     else:
         po_field = cfg.EXCEPTIONAL_TEXT
         remarks_val = str(exceptional_price(l_mm, w_mm, h_mm))
+        # কোনো কোড ম্যাচ হয়নি (হয়তো ফাঁকা/Regular/Irregular ছিল) — কিন্তু
+        # তার আগেও এই মাপটা আমাদের প্রাইস-লিস্টের কোনো পরিচিত কোডের সাথে
+        # হুবহু মিলে যাচ্ছে কিনা চেক করা হয় (ইউজার-কনফার্মড: এমন হলে
+        # অবশ্যই ওয়ার্ন করতে হবে, যাতে বুঝা যায় বুকিং-এ কোড লিখতে হয়তো
+        # ভুলে গেছে)। কোড অটোমেটিক বসানো হয় না, শুধু সতর্ক করা হয়।
+        possible_codes = find_codes_by_measurement(l_mm, w_mm, h_mm, lookup)
+        if possible_codes:
+            codes_str = ', '.join(possible_codes)
+            warnings.append(
+                f"⚠️ স্টাইল '{raw_style}': এই মাপ ({l_mm}x{w_mm}x{h_mm} mm) আমাদের "
+                f"C&A প্রাইস লিস্টের '{codes_str}' কোডের সাথে হুবহু মিলে যাচ্ছে, "
+                f"কিন্তু বুকিং-এ কোনো কোড লেখা ছিল না (বা যা ছিল তা লিস্টে পাওয়া "
+                f"যায়নি) — তাই EXCEPTIONAL MEASUREMENT বসানো হয়েছে। ম্যানুয়ালি "
+                f"চেক করে দেখুন সঠিক কোডটা বসানো উচিত কিনা।"
+            )
 
     qty_val = raw_item.get('qty')
     try:
