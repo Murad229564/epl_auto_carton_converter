@@ -20,6 +20,7 @@ from sterling_target_extractor import combine_sterling_booking_files
 from everbright_dunnes_extractor import combine_everbright_booking_files
 from intimate_maxdubai_extractor import combine_intimate_booking_files
 from eurotex_max_extractor import combine_eurotex_max_booking_files
+from dhaka_kohls_extractor import combine_dhaka_booking_files
 from knitasia_kohls_extractor import read_knitasia_style_excel
 from alligo_extractor import combine_alligo_booking_files
 from fame_defacto_extractor import read_fame_defacto_style_excel
@@ -576,6 +577,15 @@ def _batch_eurotex_max(files, item_name_override='', manual_ply='', customer_nam
     return combine_eurotex_max_booking_files(files, item_name_override=item_name_override, manual_ply=manual_ply)
 
 
+def _batch_dhaka(files, item_name_override='', manual_ply='', customer_name=''):
+    # Item Name সম্পূর্ণ শিটের ভেতরের টেক্সট/শিটের নাম থেকেই ডিটেক্ট হয়
+    # (item_name_override ইচ্ছাকৃতভাবে ব্যবহার হচ্ছে না — UI থেকে ডিফল্ট
+    # 'Master Carton' পাঠানো হলেও সেটা উপেক্ষা করা হয়, নাহলে আসল
+    # per-sheet auto-detection ভেঙে যেত)। Ply UI থেকে দিলে সেটাই বসে,
+    # না দিলে ডিফল্ট 5।
+    return combine_dhaka_booking_files(files, item_name_override=item_name_override, manual_ply=manual_ply)
+
+
 BATCH_REGISTRY = {
     (_norm_key('Amigo Bangladesh Ltd'), _norm_key('Uniqlo')): _batch_amigo,
     (_norm_key('Sinha Knit and Denims Limited'), _norm_key('Tata Trent')): _batch_sinha,
@@ -583,6 +593,7 @@ BATCH_REGISTRY = {
     (_norm_key('Everbright Sweater Ltd.'), _norm_key('Dunnes Stores')): _batch_everbright,
     (_norm_key('Intimate Attire Limited'), _norm_key('Max-Dubai')): _batch_intimate,
     (_norm_key('Eurotex Knitwear Ltd.'), _norm_key('MAX')): _batch_eurotex_max,
+    (_norm_key('Dhaka Garments And Washing Ltd.'), _norm_key("Kohl`s")): _batch_dhaka,
     (_norm_key('Green Life Knit Composite ltd.'), _norm_key('ALLIGO')): _batch_alligo,
     (_norm_key('Fakir Fashion Limited'), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
     (_norm_key('Epyllion Knitwears Limited'), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
