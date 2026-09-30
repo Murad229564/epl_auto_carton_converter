@@ -32,6 +32,27 @@ def mm_from_cm(v):
     return round(float(v) * 10)
 
 
+# বাস্তবসম্মত কার্টুনের কোনো দিকই সচরাচর এর বেশি সেন্টিমিটার হয় না
+# (আমাদের C&A প্রাইস-লিস্টে সবচেয়ে বড় মাপ ~৭৫০mm = ৭৫cm) — তাই raw
+# ইনপুটের সবচেয়ে বড় সংখ্যাটা এর বেশি হলে ধরে নেওয়া হয় ইনপুট আগে
+# থেকেই mm-এ দেওয়া, কম হলে cm।
+_MM_DETECT_THRESHOLD = 150
+
+
+def _normalize_measurement(l, w, h):
+    """raw L/W/H (এককের নিশ্চয়তা নেই — কিছু কাস্টমার cm দেয়, কিছু সরাসরি
+    mm) থেকে (l_cm, w_cm, h_cm, l_mm, w_mm, h_mm, was_mm) রিটার্ন করে।
+    was_mm True মানে ইনপুট mm হিসেবে ধরে নেওয়া হয়েছে (ওয়ার্নিং দেওয়ার
+    জন্য কাজে লাগে, যাতে ইউজার চোখ বুলিয়ে নিশ্চিত হতে পারেন)।"""
+    l, w, h = float(l), float(w), float(h)
+    if max(l, w, h) > _MM_DETECT_THRESHOLD:
+        l_mm, w_mm, h_mm = round(l), round(w), round(h)
+        l_cm, w_cm, h_cm = l / 10, w / 10, h / 10
+        return l_cm, w_cm, h_cm, l_mm, w_mm, h_mm, True
+    l_mm, w_mm, h_mm = mm_from_cm(l), mm_from_cm(w), mm_from_cm(h)
+    return l, w, h, l_mm, w_mm, h_mm, False
+
+
 def apply_ca_rules(raw_item, lookup, item_name_override=None, manual_ply=None):
     """একটা raw_item-কে canonical লাইন-আইটেম ডিক্টে রূপান্তর করে।
     item_name_override/manual_ply দেওয়া থাকলে (UI থেকে) raw_item-এর
@@ -43,14 +64,20 @@ def apply_ca_rules(raw_item, lookup, item_name_override=None, manual_ply=None):
     raw_style = str(raw_item.get('raw_style') or '').strip()
     style_no = f"{raw_style}{cfg.STYLE_SUFFIX}" if raw_style else (cfg.EXCEPTIONAL_TEXT)
 
-    l_cm = raw_item.get('length_cm')
-    w_cm = raw_item.get('width_cm')
-    h_cm = raw_item.get('height_cm')
-    if l_cm in (None, '') or w_cm in (None, '') or h_cm in (None, ''):
+    l_raw = raw_item.get('length_cm')
+    w_raw = raw_item.get('width_cm')
+    h_raw = raw_item.get('height_cm')
+    if l_raw in (None, '') or w_raw in (None, '') or h_raw in (None, ''):
         warnings.append(f"স্টাইল '{raw_style}': measurement পাওয়া যায়নি — এই রো স্কিপ করা হয়েছে।")
         return None, warnings
 
-    l_mm, w_mm, h_mm = mm_from_cm(l_cm), mm_from_cm(w_cm), mm_from_cm(h_cm)
+    l_cm, w_cm, h_cm, l_mm, w_mm, h_mm, was_mm = _normalize_measurement(l_raw, w_raw, h_raw)
+    if was_mm:
+        warnings.append(
+            f"স্টাইল '{raw_style}': মাপ ({l_raw}x{w_raw}x{h_raw}) mm ধরে নিয়ে "
+            f"{l_cm:g}x{w_cm:g}x{h_cm:g} cm-এ কনভার্ট করা হয়েছে (সংখ্যা বড় দেখে "
+            f"স্বয়ংক্রিয়ভাবে বোঝা হয়েছে) — একবার মিলিয়ে নিন এটা ঠিক আছে কিনা।"
+        )
 
     raw_code_text = raw_item.get('raw_code_text', '')
     entry, code_warn = match_code(raw_code_text, lookup)
