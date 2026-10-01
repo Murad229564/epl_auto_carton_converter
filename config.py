@@ -100,6 +100,7 @@ BUYERS = [
     "ALLIGO",
     "Defacto",
     "Target-USA",
+    "Abode Sourcing Ltd",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -149,6 +150,7 @@ CARTON_VERIFIED_BUYERS = [
     "ALLIGO",
     "Defacto",
     "Target-USA",
+    "Abode Sourcing Ltd",
 ]
 
 # ---------------------------------------------------------------------------
@@ -222,7 +224,7 @@ CUSTOMER_BUYER_MAP = {
     'Eurotex Knitwear Ltd.': ['MAX'],
     'Dhaka Garments And Washing Ltd.': ["Kohl`s"],
     'Knit Asia Ltd.': ["Kohl`s"],
-    'Green Life Knit Composite ltd.': ['ALLIGO'],
+    'Green Life Knit Composite ltd.': ['ALLIGO', 'Abode Sourcing Ltd'],
     'Fame Apparels Limited': ['Defacto'],
     'Fakir Fashion Limited': ['C&A BUYING GMBH & CO. KG'],
     'D&S Pretty Fashions Ltd.': ['C&A BUYING GMBH & CO. KG'],

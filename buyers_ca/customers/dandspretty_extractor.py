@@ -67,9 +67,22 @@ def _is_total_row(row):
 def _get_rows(file_stream, filename):
     """.xls/.xlsx দুটোই সাপোর্ট করে (এই কাস্টমারের ফাইল সাধারণত .xls,
     কিন্তু ভবিষ্যতে .xlsx আসলেও যেন কাজ করে) — একই outhouse_extractor.py-এর
-    মাল্টি-ইঞ্জিন হেল্পার পুনরায় ব্যবহার করা হচ্ছে।"""
+    মাল্টি-ইঞ্জিন হেল্পার পুনরায় ব্যবহার করা হচ্ছে।
+
+    ⚠️ _read_excel_rows pandas দিয়ে পড়ে বলে ফাঁকা সেল None না, float NaN
+    হিসেবে আসে (xlrd সরাসরি পড়লে None আসতো) — NaN-কে str() করলে লিটারেল
+    'nan' টেক্সট হয়ে যায়, যেটা ভুল করে একটা ভ্যালিড স্টাইল/Qty ভ্যালু
+    হিসেবে গণ্য হয়ে যাচ্ছিল। তাই এখানেই সব NaN-কে None-এ বদলে দেওয়া হয়,
+    যাতে বাকি কোড (যেটা None সঠিকভাবে হ্যান্ডেল করে) ঠিকভাবে কাজ করে।"""
     from outhouse_extractor import _read_excel_rows
-    return _read_excel_rows(file_stream, filename)
+    rows = _read_excel_rows(file_stream, filename)
+
+    def _clean_nan(v):
+        if isinstance(v, float) and v != v:  # NaN != NaN সবসময় True — এভাবে চেক করলে math ইম্পোর্ট লাগে না
+            return None
+        return v
+
+    return [[_clean_nan(v) for v in row] for row in rows]
 
 
 def read_dandspretty_excel(file_stream, filename='', lookup=None, item_name_override='', manual_ply=''):

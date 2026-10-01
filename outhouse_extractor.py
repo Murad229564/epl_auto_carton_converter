@@ -25,6 +25,7 @@ from knitasia_kohls_extractor import read_knitasia_style_excel
 from alligo_extractor import combine_alligo_booking_files
 from fame_defacto_extractor import read_fame_defacto_style_excel
 from buyers_ca.dispatch import combine_ca_booking_files
+from greenlife_abode_extractor import read_greenlife_abode_style_excel
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -411,6 +412,12 @@ def _wrap_columbia_target_usa(file_stream, filename, item_name_override, manual_
     return read_columbia_target_usa_style_excel(
         file_stream, filename,
         item_name_override=item_name_override, manual_ply=manual_ply)
+    
+    
+def _wrap_greenlife_abode(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_greenlife_abode_style_excel(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
 
 
 # ---------------------------------------------------------------------------
@@ -461,6 +468,7 @@ REGISTRY = {
     (_norm_key('Fame Apparels Limited'), _norm_key('Defacto')): [_wrap_fame_defacto],
     (_norm_key('Columbia Apparels Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
     (_norm_key('Columbia Garments Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
+    (_norm_key('Green Life Knit Composite ltd.'), _norm_key('Abode Sourcing Ltd')): [_wrap_greenlife_abode],
 }
 
 
