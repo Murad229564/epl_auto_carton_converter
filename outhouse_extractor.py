@@ -27,6 +27,7 @@ from fame_defacto_extractor import read_fame_defacto_style_excel
 from buyers_ca.dispatch import combine_ca_booking_files
 from greenlife_abode_extractor import read_greenlife_abode_style_excel
 from madinaple_original_marines_extractor import read_madinaple_style_excel
+from majumder_original_marines_extractor import combine_majumder_booking_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -476,7 +477,6 @@ REGISTRY = {
     (_norm_key('Columbia Apparels Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
     (_norm_key('Columbia Garments Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
     (_norm_key('Green Life Knit Composite ltd.'), _norm_key('Abode Sourcing Ltd')): [_wrap_greenlife_abode],
-    (_norm_key('Madinaple Fashions Craft Limited'), _norm_key('Original Marines')): [_wrap_madinaple],
 }
 
 
@@ -602,6 +602,15 @@ def _batch_dhaka(files, item_name_override='', manual_ply='', customer_name=''):
     return combine_dhaka_booking_files(files, item_name_override=item_name_override, manual_ply=manual_ply)
 
 
+def _batch_majumder(files, item_name_override='', manual_ply='', customer_name=''):
+    # Item Name সম্পূর্ণ শিটের ভেতরের টেক্সট/শিটের নাম থেকেই ডিটেক্ট হয়
+    # (item_name_override ইচ্ছাকৃতভাবে ব্যবহার হচ্ছে না — UI থেকে ডিফল্ট
+    # 'Master Carton' পাঠানো হলেও সেটা উপেক্ষা করা হয়, নাহলে আসল
+    # per-sheet auto-detection ভেঙে যেত)। Ply UI থেকে দিলে সেটাই বসে,
+    # না দিলে ডিফল্ট 5।
+    return combine_majumder_booking_files(files, item_name_override=item_name_override, manual_ply=manual_ply)
+
+
 BATCH_REGISTRY = {
     (_norm_key('Amigo Bangladesh Ltd'), _norm_key('Uniqlo')): _batch_amigo,
     (_norm_key('Sinha Knit and Denims Limited'), _norm_key('Tata Trent')): _batch_sinha,
@@ -614,6 +623,7 @@ BATCH_REGISTRY = {
     (_norm_key('Fakir Fashion Limited'), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
     (_norm_key('Epyllion Knitwears Limited'), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
     (_norm_key("D&S Pretty Fashions Ltd."), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
+    (_norm_key('Majumder Garments Ltd.'), _norm_key("Original Marines")): _batch_majumder,
 }
 
 

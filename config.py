@@ -51,6 +51,7 @@ CUSTOMERS = {
         "D&S Pretty Fashions Ltd.",
         "Epyllion Knitwears Limited",
         "Madinaple Fashions Craft Limited",
+        "Majumder Garments Ltd.",
     ],
 }
 
@@ -152,6 +153,7 @@ CARTON_VERIFIED_BUYERS = [
     "Defacto",
     "Target-USA",
     "Abode Sourcing Ltd",
+    "Original Marines",
 ]
 
 # ---------------------------------------------------------------------------
@@ -230,6 +232,7 @@ CUSTOMER_BUYER_MAP = {
     'Fakir Fashion Limited': ['C&A BUYING GMBH & CO. KG'],
     'D&S Pretty Fashions Ltd.': ['C&A BUYING GMBH & CO. KG'],
     'Madinaple Fashions Craft Limited': ['Original Marines'],
+    'Majumder Garments Ltd.': ['Original Marines'],
 }
 
 BUYER_ALIASES = {
@@ -447,11 +450,21 @@ DELIVERY_ADDRESSES = {
         'D&S Pretty (Wearhouse)',
     ],
     'Madinaple Fashions Craft Limited': [
-    'Madinaple Fashions Craft Limited',
-    'Rose Sweater Ltd',
-    'Madinaple Fashions Craft Limited.',
-    'Madinaple Fashions Crft Ltd (UNIT-2)',
+        'Madinaple Fashions Craft Limited',
+        'Rose Sweater Ltd',
+        'Madinaple Fashions Craft Limited.',
+        'Madinaple Fashions Crft Ltd (UNIT-2)',
     ],
+    'Majumder Garments Ltd.': [
+        'Majumder Knitwear Ltd.',
+        'Majumder Fashion Ltd.',
+        'Majumder Garments Ltd.',
+        'Majumder Garments - Head Office',
+        'K B Apparels Limited',
+        'Alien Apparels Ltd.',
+        'Samia Garments (PVT) Ltd.',
+        'Mastrade International Garments Ltd.',
+        ],
 }
 
 # ---------------------------------------------------------------------------
