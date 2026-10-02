@@ -26,6 +26,7 @@ from alligo_extractor import combine_alligo_booking_files
 from fame_defacto_extractor import read_fame_defacto_style_excel
 from buyers_ca.dispatch import combine_ca_booking_files
 from greenlife_abode_extractor import read_greenlife_abode_style_excel
+from madinaple_original_marines_extractor import read_madinaple_style_excel
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -418,6 +419,12 @@ def _wrap_greenlife_abode(file_stream, filename, item_name_override, manual_ply,
     return read_greenlife_abode_style_excel(
         file_stream, filename,
         item_name_override=item_name_override, manual_ply=manual_ply)
+    
+    
+def _wrap_madinaple(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_madinaple_style_excel(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
 
 
 # ---------------------------------------------------------------------------
@@ -469,6 +476,7 @@ REGISTRY = {
     (_norm_key('Columbia Apparels Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
     (_norm_key('Columbia Garments Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
     (_norm_key('Green Life Knit Composite ltd.'), _norm_key('Abode Sourcing Ltd')): [_wrap_greenlife_abode],
+    (_norm_key('Madinaple Fashions Craft Limited'), _norm_key('Original Marines')): [_wrap_madinaple],
 }
 
 

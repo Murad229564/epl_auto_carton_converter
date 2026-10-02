@@ -50,6 +50,7 @@ CUSTOMERS = {
         "Fakir Fashion Limited",
         "D&S Pretty Fashions Ltd.",
         "Epyllion Knitwears Limited",
+        "Madinaple Fashions Craft Limited",
     ],
 }
 
@@ -228,6 +229,7 @@ CUSTOMER_BUYER_MAP = {
     'Fame Apparels Limited': ['Defacto'],
     'Fakir Fashion Limited': ['C&A BUYING GMBH & CO. KG'],
     'D&S Pretty Fashions Ltd.': ['C&A BUYING GMBH & CO. KG'],
+    'Madinaple Fashions Craft Limited': ['Original Marines'],
 }
 
 BUYER_ALIASES = {
@@ -315,6 +317,7 @@ DELIVERY_ADDRESSES = {
         'Agami Fashions Limited',
         'A & A Trousers Ltd.',
         'Aboni Fashions Ltd.',
+        'Croydon-Kowloon Designs Ltd.',
     ],
     'Young 4 Ever Textiles Limited': ['Young 4 Ever Textiles Ltd'],
     'Kenpark Bangladesh Apparel (Pvt.) Limited': ['Kenpark Bangladesh Apparel (Pvt.) Limited- U-5', 'Kenpark Bangladesh Apparel (Pvt.) Limited- U-2', 'Kenpark Bangladesh Apparel (Pvt.) Limited-U-3', 'Kenpark Bangladesh Apparel (Pvt.) Limited'],
@@ -442,6 +445,12 @@ DELIVERY_ADDRESSES = {
         'Oxford Shirts Ltd.',
         'Innova Apparels Solutions Ltd.',
         'D&S Pretty (Wearhouse)',
+    ],
+    'Madinaple Fashions Craft Limited': [
+    'Madinaple Fashions Craft Limited',
+    'Rose Sweater Ltd',
+    'Madinaple Fashions Craft Limited.',
+    'Madinaple Fashions Crft Ltd (UNIT-2)',
     ],
 }
 
