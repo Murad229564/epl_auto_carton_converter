@@ -222,7 +222,7 @@ def _read_one_file(file_stream, filename, item_name_override, manual_ply):
         for key in group_order:
             l, w, h = key
             try:
-                tb_l = _fmt_num(float(l) - 5)
+                tb_l = _fmt_num(float(l) - 2.5)
                 tb_w = _fmt_num(float(w) - 5)
             except (TypeError, ValueError):
                 continue
