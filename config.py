@@ -52,6 +52,7 @@ CUSTOMERS = {
         "Epyllion Knitwears Limited",
         "Madinaple Fashions Craft Limited",
         "Majumder Garments Ltd.",
+        "RADICAL DESIGN LTD",
     ],
 }
 
@@ -233,6 +234,7 @@ CUSTOMER_BUYER_MAP = {
     'D&S Pretty Fashions Ltd.': ['C&A BUYING GMBH & CO. KG'],
     'Madinaple Fashions Craft Limited': ['Original Marines'],
     'Majumder Garments Ltd.': ['Original Marines'],
+    'RADICAL DESIGN LTD': ['Original Marines'],
 }
 
 BUYER_ALIASES = {
@@ -465,6 +467,7 @@ DELIVERY_ADDRESSES = {
         'Samia Garments (PVT) Ltd.',
         'Mastrade International Garments Ltd.',
         ],
+    'RADICAL DESIGN LTD': ['RADICAL DESIGN LTD'],
 }
 
 # ---------------------------------------------------------------------------

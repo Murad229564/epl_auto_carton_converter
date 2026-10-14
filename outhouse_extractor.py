@@ -28,6 +28,7 @@ from buyers_ca.dispatch import combine_ca_booking_files
 from greenlife_abode_extractor import read_greenlife_abode_style_excel
 from madinaple_original_marines_extractor import read_madinaple_style_excel
 from majumder_original_marines_extractor import combine_majumder_booking_files
+from radicaldesign_original_marines_extractor import combine_radicaldesign_booking_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -562,6 +563,11 @@ def _batch_ca(files, item_name_override='', manual_ply='', customer_name=''):
     return combine_ca_booking_files(
         files, item_name_override=item_name_override, manual_ply=manual_ply,
         customer_name=customer_name, buyer_name='C&A BUYING GMBH & CO. KG')
+    
+    
+def _batch_radicaldesign(files, item_name_override='', manual_ply='', customer_name=''):
+    return combine_radicaldesign_booking_files(
+        files, item_name_override=item_name_override, manual_ply=manual_ply)
 
 
 def _batch_everbright(files, item_name_override='', manual_ply='', customer_name=''):   
@@ -624,6 +630,7 @@ BATCH_REGISTRY = {
     (_norm_key('Epyllion Knitwears Limited'), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
     (_norm_key("D&S Pretty Fashions Ltd."), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
     (_norm_key('Majumder Garments Ltd.'), _norm_key("Original Marines")): _batch_majumder,
+    (_norm_key('RADICAL DESIGN LTD'), _norm_key('Original Marines')): _batch_radicaldesign,
 }
 
 
