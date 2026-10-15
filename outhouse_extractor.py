@@ -29,6 +29,7 @@ from greenlife_abode_extractor import read_greenlife_abode_style_excel
 from madinaple_original_marines_extractor import read_madinaple_style_excel
 from majumder_original_marines_extractor import combine_majumder_booking_files
 from radicaldesign_original_marines_extractor import combine_radicaldesign_booking_files
+from goodearth_joefresh_extractor import combine_goodearth_joefresh_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -429,6 +430,10 @@ def _wrap_madinaple(file_stream, filename, item_name_override, manual_ply, buyer
         item_name_override=item_name_override, manual_ply=manual_ply)
 
 
+def _batch_goodearth_joefresh(files, item_name_override='', manual_ply='', customer_name=''):
+    return combine_goodearth_joefresh_files(
+        files, item_name_override=item_name_override, manual_ply=manual_ply)
+
 # ---------------------------------------------------------------------------
 # CUSTOMER + BUYER -> extractor রেজিস্ট্রি। এখানে key হলো
 # (normalize(customer_name), normalize(buyer_name))। বায়ার-নির্বিশেষে একই
@@ -478,6 +483,7 @@ REGISTRY = {
     (_norm_key('Columbia Apparels Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
     (_norm_key('Columbia Garments Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
     (_norm_key('Green Life Knit Composite ltd.'), _norm_key('Abode Sourcing Ltd')): [_wrap_greenlife_abode],
+    (_norm_key('GoodEarth Apparels ltd.'), _norm_key('Joe Fresh')): _batch_goodearth_joefresh,
 }
 
 
