@@ -104,6 +104,7 @@ BUYERS = [
     "Defacto",
     "Target-USA",
     "Abode Sourcing Ltd",
+    "Joe Fresh",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -155,6 +156,7 @@ CARTON_VERIFIED_BUYERS = [
     "Target-USA",
     "Abode Sourcing Ltd",
     "Original Marines",
+    "Joe Fresh",
 ]
 
 # ---------------------------------------------------------------------------
@@ -205,7 +207,7 @@ CUSTOMER_BUYER_MAP = {
     'Dazzling Dresses Ltd.': _IN_HOUSE_BUYERS,
 
     # --- OUT-HOUSE ---
-    'GoodEarth Apparels ltd.': ['American Eagle', 'Aditya Birla'],
+    'GoodEarth Apparels ltd.': ['American Eagle', 'Aditya Birla', 'Joe Fresh'],
     'Barnali Textile and Printing Industries (Pvt) Ltd.': ['Hultafors Group AB'],
     'Barnali Collections Limited': ['Hultafors Group AB'],
     'Modele de Capital Ind Ltd.': ['Primark'],

@@ -354,7 +354,7 @@ def build_combined_excel(line_items, header_info, out_path, profile='IN-HOUSE',
             to_num(r.get('ply', '')),                                 # N Ply
             'Pcs',                                                       # O Order Unit
             to_num(r.get('qty', '')),                                     # P Order Qty
-            delivery_date or '',                                            # Q Delivery Date
+            r.get('_file_delivery_date') or delivery_date or '',            # Q Delivery Date
             delivery_address or '',                                          # R Delivery Place
             remarks_val,                                                       # S Remarks (checkbox-এ Delivery Place)
         ]
