@@ -483,7 +483,6 @@ REGISTRY = {
     (_norm_key('Columbia Apparels Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
     (_norm_key('Columbia Garments Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
     (_norm_key('Green Life Knit Composite ltd.'), _norm_key('Abode Sourcing Ltd')): [_wrap_greenlife_abode],
-    (_norm_key('GoodEarth Apparels ltd.'), _norm_key('Joe Fresh')): _batch_goodearth_joefresh,
 }
 
 
@@ -637,6 +636,7 @@ BATCH_REGISTRY = {
     (_norm_key("D&S Pretty Fashions Ltd."), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
     (_norm_key('Majumder Garments Ltd.'), _norm_key("Original Marines")): _batch_majumder,
     (_norm_key('RADICAL DESIGN LTD'), _norm_key('Original Marines')): _batch_radicaldesign,
+    (_norm_key('GoodEarth Apparels ltd.'), _norm_key('Joe Fresh')): _batch_goodearth_joefresh,
 }
 
 

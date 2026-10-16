@@ -5,7 +5,7 @@ import pandas as pd
 # Columbia Apparels Limited — বায়ার: Target Australia
 # 'PRINTED 3 & 5 PLY SOLID CARTON BOOKING FOR BUYER TARGET AUSTRALIA' এক্সেল
 # ফরম্যাট। একই Columbia কাস্টমারের GU বায়ারের ফরম্যাট থেকে সম্পূর্ণ ভিন্ন
-# (বায়ার আলাদা হওয়ায় লেআউট আলাদা) — তাই আলাদা এক্সট্র্যাক্টর।
+# (বায়ার আলাদা হওয়ায় লেআউট আলাদা) — তাই আলাদা এক্সট্রাক্টর।
 #
 # ম্যাপিং:
 #   PO No column       -> po_no (Master Carton রো-তে সরাসরি এখান থেকে;
@@ -27,6 +27,13 @@ import pandas as pd
 # (Master Carton/Elastic Hanger/ইত্যাদি) এই রো-গুলোতে প্রযোজ্য না।
 #
 # EWO No এই ফরম্যাটেও কখনো থাকে না -> সরাসরি 'N/A'।
+#
+# ডেলিভারি ডেট: ফাইলের নিচের দিকে 'Delivery Date' লেবেলের ঠিক নিচের ঘরে
+# (বা একই রো-র ডানে) যে তারিখ থাকে সেটা প্রতিটা লাইন-আইটেমে
+# '_file_delivery_date' key-তে (টেমপ্লেটের ফরম্যাটে, যেমন '02-Aug-2026')
+# বসানো হয় — builder.py এটা থাকলে Delivery Date ঘরে এটাই বসায়। উপরের
+# 'Date :' (বুকিং-তারিখ) ধরা হয় না, কারণ শুধু লেবেলের পরের জায়গা দেখা হয়।
+# তারিখ না পেলে কিছু বসে না, আগের মতো UI/অটো ডেটই থাকে।
 # ---------------------------------------------------------------------------
 
 
@@ -40,6 +47,60 @@ def _is_blank(v):
     if isinstance(v, float) and pd.isna(v):
         return True
     return str(v).strip() == ''
+
+
+_DATE_FORMATS = ('%d/%m/%Y', '%d-%m-%Y', '%d.%m.%Y', '%d-%b-%Y', '%d %b %Y', '%Y-%m-%d')
+
+
+def _delivery_date_format():
+    try:
+        from config import DELIVERY_DATE_FORMAT
+        return DELIVERY_DATE_FORMAT
+    except Exception:
+        return '%d-%b-%Y'
+
+
+def _to_date_str(v):
+    """datetime/date বা পরিচিত ফরম্যাটের টেক্সট -> টেমপ্লেটের ডেট-ফরম্যাটে
+    স্ট্রিং। বোঝা না গেলে (বা NaT/ফাঁকা হলে) None।"""
+    import datetime
+    fmt = _delivery_date_format()
+    if isinstance(v, (datetime.datetime, datetime.date)):
+        try:
+            if pd.isna(v):
+                return None
+        except (TypeError, ValueError):
+            pass
+        return v.strftime(fmt)
+    if isinstance(v, str):
+        t = re.sub(r'\s+', ' ', v).strip()
+        for f in _DATE_FORMATS:
+            try:
+                return datetime.datetime.strptime(t, f).strftime(fmt)
+            except ValueError:
+                continue
+    return None
+
+
+def _find_delivery_date(rows, max_rows=600):
+    """'Delivery Date' লেবেল ('Delivery Address' না) খুঁজে তার একই রো-র ডানে
+    বা ঠিক নিচের কয়েক রো-তে প্রথম তারিখটা রিটার্ন করে। না পেলে None।"""
+    for ri in range(min(len(rows), max_rows)):
+        row = rows[ri]
+        for ci, cell in enumerate(row):
+            if _is_blank(cell) or not isinstance(cell, str):
+                continue
+            if _norm(cell) != 'deliverydate':
+                continue
+            for rr in range(ri, min(ri + 4, len(rows) - 1) + 1):
+                r2 = rows[rr]
+                for cc in range(ci, min(ci + 12, len(r2))):
+                    if rr == ri and cc == ci:
+                        continue
+                    d = _to_date_str(r2[cc])
+                    if d:
+                        return d
+    return None
 
 
 def _parse_measurement(m):
@@ -203,5 +264,10 @@ def read_columbia_target_australia_style_excel(
 
     if not items:
         raise ValueError("হেডার পাওয়া গেছে কিন্তু বৈধ (measurement+qty সহ) কোনো ডাটা রো পাওয়া যায়নি")
+
+    file_date = _find_delivery_date(rows)
+    if file_date:
+        for it in items:
+            it['_file_delivery_date'] = file_date
 
     return items
