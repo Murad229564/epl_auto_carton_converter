@@ -1,11 +1,12 @@
 """
 Amigo Bangladesh Ltd — Buyer: Uniqlo
-Carton Booking Excel ফরম্যাট (SOLID / ASSORT)।
+Carton Booking Excel ফরম্যাট (SOLID / ASSORT / PACKING-LIST)।
 
-একটা বুকিং-এ সাধারণত ১-৫টা .xls/.xlsx ফাইল আসতে পারে, প্রতিটাই SOLID বা
-ASSORT টাইপের (ফাইলের ভেতরেই এই ইনফো পাওয়া যায়, filename-এর উপর ভরসা করা
-হয় না)। প্রতিটা ফাইল থেকে দুই জায়গার ডাটা নেওয়া হয়:
+একটা বুকিং-এ সাধারণত ১-৫টা .xls/.xlsx ফাইল আসতে পারে। ফাইলের ভেতরের
+শিট দেখে ফরম্যাট শনাক্ত হয় (filename-এর উপর ভরসা করা হয় না)। তিন ধরনের
+ফরম্যাট সাপোর্ট করা হয়:
 
+[ফরম্যাট-১ ও ২: SOLID / ASSORT]
 1. 'SIZE BREAKDOWN' শিট (নাম-এ শেষে স্পেস/ভিন্নতা থাকতে পারে, এবং একই নামে
    একটা hidden ডুপ্লিকেট শিটও থাকতে পারে — শুধু visible শিটটাই পড়া হয়) —
    এখান থেকে Master Carton-এর লাইন-আইটেম আসে। SOLID টাইপে explicit
@@ -17,6 +18,11 @@ ASSORT টাইপের (ফাইলের ভেতরেই এই ইন�
    Breakdown শিট থেকেই ইতিমধ্যে নেওয়া হয়ে গেছে)। Ply প্রতিটা রো-এর নিজের
    বর্ণনা-টেক্সট থেকে ডাইনামিকভাবে বের করা হয় (গ্রুপ-হেডারে ভুল/ভিন্ন ply
    লেখা থাকতে পারে বলে গ্রুপ-হেডারে ভরসা করা হয় না)।
+
+[ফরম্যাট-৩: PACKING LIST — 'xx-8152 PL &carton purchase' ধরনের শিট]
+   একটা ফাইলে ১-২টা (বা বেশি) এমন শিট থাকতে পারে; সবগুলো শিট ও সবগুলো
+   ফাইল মিলিয়ে একটা টেমপ্লেট হয়। 'shipping mark' শিট ও hidden শিট/রো/কলাম
+   পুরোপুরি বাদ। বিস্তারিত ম্যাপিং নিচে _extract_packing_list-এর আগে লেখা আছে।
 
 ব্যবসায়িক নিয়ম (ইউজার-কনফার্মড):
 - Required Carton Quantity কলামে যা লেখা আছে সেটাই হুবহু ব্যবহার হবে —
@@ -390,15 +396,225 @@ def _extract_indent(df, sheet_name):
     return items, []
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# ফরম্যাট-৩: "PL &carton purchase" (Packing List) — নতুন সংযোজন
+# ═══════════════════════════════════════════════════════════════════════
+# উপরের SOLID/ASSORT লজিক একটুও বদলানো হয়নি। এই ফরম্যাটে শিটের নাম
+# প্রতি বুকিংয়ে আলাদা (যেমন 'CD-8152 PL &carton purchase', 'US-8115 PL ...'),
+# তাই নামের উপর নির্ভর না করে শিটের ভেতরের হেডার দেখে শনাক্ত করা হয়
+# (Ratio + Color code + Total number of items + Carton size + Assign container
+# number — একসাথে থাকলেই এটা Packing-List শিট)। 'shipping mark' শিট এই
+# হেডার না থাকায় আপনা-আপনি বাদ পড়ে।
+#
+# ফিল্ড ম্যাপিং (ইউজার-কনফার্মড):
+#   উপরের 'PO' + '/' + 'warehouse'          -> po_no (GMT PO)
+#   উপরের 'Item number' + '/' + Color code   -> style_no
+#   Ratio                                    -> reference (Reference by SKU)
+#   Assign container number + '/' + শিটের নাম -> pack_type
+#   Carton size (cm) তিন কলাম (L/W/H)        -> length / width / height
+#   Total number of items                    -> qty
+#
+# ⚠️ qty কোন কলাম থেকে আসবে সেটা নিচের একটা সেটিং-এ ঠিক করা আছে।
+PACKING_LIST_QTY_SOURCE = 'boxes'   # 'total_items' = Total number of items
+                                          # 'boxes'       = number of boxes qty
+
+
+def _to_float(v):
+    """'2,712' বা 2712 বা '28.00' — সব ধরনের সংখ্যা float করে। না পারলে None।"""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    try:
+        return float(str(v).replace(',', '').strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _get_hidden_maps(file_stream, filename):
+    """প্রতিটা শিটের hidden row ও hidden column-এর সেট বের করে।
+    রিটার্ন: {sheet_name: (set_of_0based_rows, set_of_0based_cols)}
+    শনাক্ত করতে না পারলে খালি ডিকশনারি (তখন কিছুই hidden ধরা হয় না)।"""
+    maps = {}
+    try:
+        file_stream.seek(0)
+        if filename.lower().endswith('.xls'):
+            import xlrd
+            book = xlrd.open_workbook(file_contents=file_stream.read(), formatting_info=True)
+            for sh in book.sheets():
+                rows = {r for r, ri in sh.rowinfo_map.items() if ri.hidden}
+                cols = {c for c, ci in sh.colinfo_map.items() if ci.hidden}
+                maps[sh.name] = (rows, cols)
+        else:
+            import warnings
+            from openpyxl import load_workbook as _load_wb
+            from openpyxl.utils import column_index_from_string
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                wb = _load_wb(file_stream, data_only=True)
+            for ws in wb.worksheets:
+                rows = {r - 1 for r, d in ws.row_dimensions.items() if d.hidden}
+                cols = set()
+                for key, d in ws.column_dimensions.items():
+                    if d.hidden:
+                        lo = d.min or column_index_from_string(key)
+                        hi = min(d.max or lo, max(ws.max_column, lo))
+                        cols.update(range(lo - 1, hi))
+                maps[ws.title] = (rows, cols)
+            wb.close()
+    except Exception:
+        return {}
+    finally:
+        file_stream.seek(0)
+    return maps
+
+
+def _find_packing_list_header(df):
+    """Packing-List টাইপ শিটের টেবিল-হেডার রো খুঁজে বের করে।
+    রিটার্ন (header_row, label_map) অথবা None।"""
+    needed = ('ratio', 'colorcode', 'totalnumberofitems', 'cartonsizecm', 'assigncontainernumber')
+    for r in range(min(df.shape[0], 15)):
+        labels = _row_label_map(df, r)
+        if all(k in labels for k in needed):
+            return r, labels
+    return None
+
+
+def _top_field(df, upto_row, hidden_cols, label_key):
+    """হেডার-এর উপরের অংশে (যেমন 'PO：', 'Item number：', 'warehouse：')
+    লেবেল সেল খুঁজে তার ডানের প্রথম ফাঁকা-নয় সেলের মান রিটার্ন করে।"""
+    for r in range(min(upto_row, df.shape[0])):
+        for c in range(df.shape[1]):
+            if c in hidden_cols:
+                continue
+            if _norm(df.iat[r, c]) == label_key:
+                for c2 in range(c + 1, df.shape[1]):
+                    if c2 in hidden_cols:
+                        continue
+                    v = _clean(df.iat[r, c2])
+                    if v:
+                        return v
+                return ''
+    return ''
+
+
+def _extract_packing_list(df, sheet_name, hidden_rows, hidden_cols):
+    """একটা 'PL &carton purchase' শিট থেকে Master Carton লাইন-আইটেম বের করে।
+    রিটার্ন (line_items, warnings)। hidden row/column-এর ডাটা ধরা হয় না।"""
+    found = _find_packing_list_header(df)
+    if not found:
+        return [], []
+    header_row, labels = found
+
+    ratio_col = labels['ratio']
+    color_col = labels['colorcode']
+    cont_col = labels['assigncontainernumber']
+    size_col = labels['cartonsizecm']          # L; পরের দুই কলাম W ও H
+    qty_key = 'totalnumberofitems' if PACKING_LIST_QTY_SOURCE == 'total_items' else None
+    if qty_key:
+        qty_col = labels[qty_key]
+    else:
+        qty_col = (labels.get('numberofboxesqty')
+                   or _find_col_containing(labels, 'numberofboxes'))
+    if qty_col is None:
+        return [], [f"⚠️ শিট '{sheet_name}': Quantity কলাম পাওয়া যায়নি — শিট স্কিপ করা হয়েছে।"]
+
+    warnings = []
+    for nm, col in (('Ratio', ratio_col), ('Color code', color_col),
+                    ('Assign container number', cont_col), ('Quantity', qty_col),
+                    ('Carton size', size_col)):
+        if col in hidden_cols:
+            warnings.append(f"⚠️ শিট '{sheet_name}': '{nm}' কলামটা hidden — ওই ডাটা ফাঁকা ধরা হয়েছে।")
+
+    def cell(r, c):
+        if c is None or c in hidden_cols or c >= df.shape[1]:
+            return None
+        return df.iat[r, c]
+
+    po = _top_field(df, header_row, hidden_cols, 'po')
+    item_no = _top_field(df, header_row, hidden_cols, 'itemnumber')
+    warehouse = _top_field(df, header_row, hidden_cols, 'warehouse')
+    if not po:
+        warnings.append(f"⚠️ শিট '{sheet_name}': উপরে 'PO' পাওয়া যায়নি।")
+    if not warehouse:
+        warnings.append(f"⚠️ শিট '{sheet_name}': উপরে 'warehouse' পাওয়া যায়নি।")
+    if not item_no:
+        warnings.append(f"⚠️ শিট '{sheet_name}': উপরে 'Item number' পাওয়া যায়নি।")
+
+    po_no = '/'.join(x for x in (po, warehouse) if x) or 'N/A'
+    clean_sheet = _clean(sheet_name)
+
+    items = []
+    total_row_qty = None
+    for r in range(header_row + 1, df.shape[0]):
+        if r in hidden_rows:
+            continue
+        ratio = _clean(cell(r, ratio_col))
+        container = _clean(cell(r, cont_col))
+        qty_raw = cell(r, qty_col)
+        qty = _to_float(qty_raw)
+
+        is_data_row = bool(ratio) and bool(container) and qty is not None
+        if not is_data_row:
+            # ডাটা শেষে '合计' (Total) রো — ratio/container ফাঁকা কিন্তু qty আছে।
+            # এর পরে "অর্ডার সামারি" টেবিল শুরু হয়, তাই এখানেই থামা হয়।
+            if items and not ratio and not container and qty is not None:
+                total_row_qty = qty
+                break
+            continue
+
+        if qty <= 0:
+            continue  # নিয়ম: qty 0/ফাঁকা হলে রো বাদ
+
+        color = _clean(cell(r, color_col))
+        style_no = '/'.join(x for x in (item_no, color) if x) or 'N/A'
+        length = _fmt_num(_to_float(cell(r, size_col)))
+        width = _fmt_num(_to_float(cell(r, size_col + 1)))
+        height = _fmt_num(_to_float(cell(r, size_col + 2)))
+
+        items.append({
+            'item_name': 'Master Carton',
+            'ewo_no': 'N/A',
+            'style_no': style_no,
+            'po_no': po_no,
+            'length': length,
+            'width': width,
+            'height': height,
+            'ply': '5',
+            'qty': qty,
+            'pack_type': f"{container}/{clean_sheet}",
+            'reference': ratio,
+            'remarks': '',
+            'color': 'N/A',
+            'size': 'N/A',
+            'delivery_date': '',
+            'measurement_unit': 'Cm',
+            'delivery_place_pdf': '',
+            'delivery_address_pdf': '',
+            '_sheet': sheet_name,
+        })
+
+    extracted_total = sum(it['qty'] for it in items)
+    if not items:
+        warnings.append(f"⚠️ শিট '{sheet_name}': Packing-List হেডার পাওয়া গেলেও কোনো ডাটা রো পাওয়া যায়নি।")
+    elif total_row_qty is not None and abs(total_row_qty - extracted_total) > 0.001:
+        warnings.append(
+            f"⚠️ শিট '{sheet_name}': Total রো-তে Qty = {total_row_qty:g}, কিন্তু বের করা "
+            f"লাইন-আইটেমগুলোর মোট Qty = {extracted_total:g} — পার্থক্য "
+            f"{total_row_qty - extracted_total:g}, ভালোভাবে চেক করে নিন।"
+        )
+    return items, warnings
+
+
 def read_amigo_booking_file(file_stream, filename):
     """একটা .xls/.xlsx Amigo/Uniqlo বুকিং ফাইল থেকে সব লাইন-আইটেম বের করে।
     রিটার্ন করে (size_breakdown_items, indent_items, warnings) — দুইটা
     গ্রুপ আলাদা রাখা হচ্ছে যাতে combine_amigo_booking_files সব ফাইলের
     Size Breakdown (Master Carton) আগে বসিয়ে, সব ফাইলের Indent (Top
-    Bottom/Divider) একেবারে শেষে বসাতে পারে।"""
+    Bottom/Divider) একেবারে শেষে বসাতে পারে। নতুন Packing-List ফরম্যাটের
+    Master Carton লাইনগুলোও sb_items গ্রুপেই যায়।"""
     file_stream.seek(0)
     sheets = pd.read_excel(file_stream, sheet_name=None, header=None)
     visible_names = _get_visible_sheet_names(file_stream, filename)
+    hidden_maps = _get_hidden_maps(file_stream, filename)
 
     sb_items = []
     indent_items = []
@@ -416,6 +632,13 @@ def read_amigo_booking_file(file_stream, filename):
             items, warns = _extract_indent(df, sheet_name)
             indent_items.extend(items)
             all_warnings.extend(warns)
+        else:
+            # নতুন ফরম্যাট: নাম দিয়ে নয়, ভেতরের হেডার দিয়ে শনাক্ত
+            # ('shipping mark' ইত্যাদি অন্য শিটে এই হেডার নেই, তাই স্কিপ হয়)।
+            h_rows, h_cols = hidden_maps.get(sheet_name, (set(), set()))
+            items, warns = _extract_packing_list(df, sheet_name, h_rows, h_cols)
+            sb_items.extend(items)
+            all_warnings.extend(warns)
 
     if not sb_items and not indent_items:
         all_warnings.append(f"⚠️ '{filename}': কোনো লাইন-আইটেম পাওয়া যায়নি (পরিচিত ফরম্যাট না হতে পারে)।")
@@ -424,10 +647,10 @@ def read_amigo_booking_file(file_stream, filename):
 
 
 def combine_amigo_booking_files(file_tuples):
-    """একাধিক Amigo বুকিং ফাইল (SOLID/ASSORT, যতগুলোই আসুক — ২টা বা ৪টা)
-    কম্বাইন করে। ইউজার-কনফার্মড অর্ডারিং নিয়ম: সব ফাইলের Size Breakdown
-    (Master Carton) লাইন-আইটেমগুলো আগে, তারপর সব ফাইলের Indent (Top
-    Bottom/Divider) লাইন-আইটেমগুলো একেবারে সবার শেষে।
+    """একাধিক Amigo বুকিং ফাইল (SOLID/ASSORT/PACKING-LIST, যতগুলোই আসুক)
+    কম্বাইন করে। ইউজার-কনফার্মড অর্ডারিং নিয়ম: সব ফাইলের Size Breakdown /
+    Packing-List (Master Carton) লাইন-আইটেমগুলো আগে, তারপর সব ফাইলের Indent
+    (Top Bottom/Divider) লাইন-আইটেমগুলো একেবারে সবার শেষে।
     file_tuples: [(BytesIO, filename), ...]
     রিটার্ন করে (line_items, warnings)।"""
     all_sb_items = []
