@@ -53,6 +53,7 @@ CUSTOMERS = {
         "Madinaple Fashions Craft Limited",
         "Majumder Garments Ltd.",
         "RADICAL DESIGN LTD",
+        "Soorty Textiles (BD) Limited",
     ],
 }
 
@@ -237,6 +238,7 @@ CUSTOMER_BUYER_MAP = {
     'Madinaple Fashions Craft Limited': ['Original Marines'],
     'Majumder Garments Ltd.': ['Original Marines'],
     'RADICAL DESIGN LTD': ['Original Marines'],
+    'Soorty Textiles (BD) Limited': ['C&A BUYING GMBH & CO. KG'],
 }
 
 BUYER_ALIASES = {
@@ -470,6 +472,7 @@ DELIVERY_ADDRESSES = {
         'Mastrade International Garments Ltd.',
         ],
     'RADICAL DESIGN LTD': ['RADICAL DESIGN LTD'],
+    'Soorty Textiles (BD) Limited': ['Soorty Textiles (BD) Limited', 'Soorty Textiles (BD) Limited Unit-02'],
 }
 
 # ---------------------------------------------------------------------------

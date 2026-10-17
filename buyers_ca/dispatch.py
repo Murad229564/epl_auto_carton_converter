@@ -22,6 +22,7 @@ from .ca_rules import check_price_list_validity
 from .customers.fakir_fashion_extractor import read_fakir_fashion_excel
 from .customers.epyllion_knitwears_cna_extractor import read_epyllion_cna_excel
 from .customers.dandspretty_extractor import read_dandspretty_excel
+from .customers.soorty_textiles_extractor import read_soorty_textiles_excel
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 _PRICE_LIST_PATH = os.path.join(HERE, 'ca_price_list.json')
@@ -36,6 +37,7 @@ CUSTOMER_REGISTRY = {
     _norm_key('Fakir Fashion Limited'): read_fakir_fashion_excel,
     _norm_key('Epyllion Knitwears Limited'): read_epyllion_cna_excel,
     _norm_key('D&S Pretty Fashions Ltd.'): read_dandspretty_excel,
+    _norm_key('Soorty Textiles (BD) Limited'): read_soorty_textiles_excel,
 }
 
 

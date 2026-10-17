@@ -634,6 +634,7 @@ BATCH_REGISTRY = {
     (_norm_key('Fakir Fashion Limited'), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
     (_norm_key('Epyllion Knitwears Limited'), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
     (_norm_key("D&S Pretty Fashions Ltd."), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
+    (_norm_key('Soorty Textiles (BD) Limited'), _norm_key('C&A BUYING GMBH & CO. KG')): _batch_ca,
     (_norm_key('Majumder Garments Ltd.'), _norm_key("Original Marines")): _batch_majumder,
     (_norm_key('RADICAL DESIGN LTD'), _norm_key('Original Marines')): _batch_radicaldesign,
     (_norm_key('GoodEarth Apparels ltd.'), _norm_key('Joe Fresh')): _batch_goodearth_joefresh,

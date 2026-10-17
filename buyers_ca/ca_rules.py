@@ -39,13 +39,13 @@ def mm_from_cm(v):
 _MM_DETECT_THRESHOLD = 150
 
 
-def _normalize_measurement(l, w, h):
+def _normalize_measurement(l, w, h, unit_hint=None):
     """raw L/W/H (এককের নিশ্চয়তা নেই — কিছু কাস্টমার cm দেয়, কিছু সরাসরি
     mm) থেকে (l_cm, w_cm, h_cm, l_mm, w_mm, h_mm, was_mm) রিটার্ন করে।
     was_mm True মানে ইনপুট mm হিসেবে ধরে নেওয়া হয়েছে (ওয়ার্নিং দেওয়ার
     জন্য কাজে লাগে, যাতে ইউজার চোখ বুলিয়ে নিশ্চিত হতে পারেন)।"""
     l, w, h = float(l), float(w), float(h)
-    if max(l, w, h) > _MM_DETECT_THRESHOLD:
+    if unit_hint == 'mm' or (unit_hint is None and max(l, w, h) > _MM_DETECT_THRESHOLD):
         l_mm, w_mm, h_mm = round(l), round(w), round(h)
         l_cm, w_cm, h_cm = l / 10, w / 10, h / 10
         return l_cm, w_cm, h_cm, l_mm, w_mm, h_mm, True
@@ -71,8 +71,12 @@ def apply_ca_rules(raw_item, lookup, item_name_override=None, manual_ply=None):
         warnings.append(f"স্টাইল '{raw_style}': measurement পাওয়া যায়নি — এই রো স্কিপ করা হয়েছে।")
         return None, warnings
 
-    l_cm, w_cm, h_cm, l_mm, w_mm, h_mm, was_mm = _normalize_measurement(l_raw, w_raw, h_raw)
-    if was_mm:
+    # unit_hint ('mm'/'cm') extractor দিতে পারে (কলামের একক নিশ্চিত জানা থাকলে) —
+    # তখন সংখ্যার আকার দেখে অনুমান করা হয় না, তাই 'mm ধরে নেওয়া হয়েছে'
+    # ওয়ার্নিংও আসে না। না দিলে আগের মতোই অটো-ডিটেক্ট + ওয়ার্নিং।
+    unit_hint = raw_item.get('unit_hint')
+    l_cm, w_cm, h_cm, l_mm, w_mm, h_mm, was_mm = _normalize_measurement(l_raw, w_raw, h_raw, unit_hint)
+    if was_mm and unit_hint is None:
         warnings.append(
             f"স্টাইল '{raw_style}': মাপ ({l_raw}x{w_raw}x{h_raw}) mm ধরে নিয়ে "
             f"{l_cm:g}x{w_cm:g}x{h_cm:g} cm-এ কনভার্ট করা হয়েছে (সংখ্যা বড় দেখে "

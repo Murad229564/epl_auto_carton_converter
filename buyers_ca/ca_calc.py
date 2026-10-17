@@ -28,7 +28,7 @@ def _extract_base_and_perf(text):
     t = re.sub(r'C&A[\s\-]+', 'C&A-', t)
     t = re.sub(r'\s*-\s*', '-', t)
     t = re.sub(r'\s+', ' ', t).strip()
-    t = t.rstrip('-').strip()
+    t = re.sub(r'[\s.\-]+$', '', t)  # শেষের স্পেস/ডট/হাইফেন (যেমন 'C&A-10 Perf.')
     if not t.startswith('C&A'):
         return '', perf
     return t, perf
@@ -71,6 +71,8 @@ def match_code(raw_code_text, lookup):
     entry = by_code.get((base, perf))
     if entry is not None:
         return entry, None
+    if re.search(cfg.EXCEPTIONAL_CODE_REGEX, str(raw_code_text).upper()):
+        return None, None  # যেমন 'C&A-MOC EB' — এক্সেপশনাল, ওয়ার্নিং ছাড়া
     alt = by_code.get((base, not perf))
     if alt is not None:
         return None, (
