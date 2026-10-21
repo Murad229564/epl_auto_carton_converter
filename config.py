@@ -66,7 +66,7 @@ BUYERS = [
     "Celio",
     "Next",
     "Calvin Klein",
-    "Best Seller"
+    "Best Seller",
     "Original Marines",
     "Target Australia",
     "Tommy Hilfiger",
@@ -183,7 +183,7 @@ _IN_HOUSE_BUYERS = [
     "S.OLIVER",
     "Celio",
     "Next",
-    "Best Seller"
+    "Best Seller",
     "Calvin Klein",
     "Original Marines",
     "Target Australia",
