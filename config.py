@@ -66,6 +66,7 @@ BUYERS = [
     "Celio",
     "Next",
     "Calvin Klein",
+    "Best Seller"
     "Original Marines",
     "Target Australia",
     "Tommy Hilfiger",
@@ -182,6 +183,7 @@ _IN_HOUSE_BUYERS = [
     "S.OLIVER",
     "Celio",
     "Next",
+    "Best Seller"
     "Calvin Klein",
     "Original Marines",
     "Target Australia",
@@ -250,6 +252,7 @@ BUYER_ALIASES = {
     "MARKS & SPENCER": "MARKS & SPENCER SCM LTD.",
     "C&A": "C&A BUYING GMBH & CO. KG",
     "RALPH LAUREN SOURCING CO LIMITED": "Ralph Lauren",
+    "BESTSELLER": "Best Seller",
 }
 
 CUSTOMER_ALIASES = {
