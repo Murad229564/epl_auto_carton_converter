@@ -54,6 +54,8 @@ CUSTOMERS = {
         "Majumder Garments Ltd.",
         "RADICAL DESIGN LTD",
         "Soorty Textiles (BD) Limited",
+        "Southern Clothngs Ltd.",
+        "NAZ Bangladesh Ltd.",
     ],
 }
 
@@ -239,6 +241,8 @@ CUSTOMER_BUYER_MAP = {
     'Majumder Garments Ltd.': ['Original Marines'],
     'RADICAL DESIGN LTD': ['Original Marines'],
     'Soorty Textiles (BD) Limited': ['C&A BUYING GMBH & CO. KG'],
+    'Southern Clothngs Ltd.': ['Original Marines'],
+    'NAZ Bangladesh Ltd.': ['Original Marines'],
 }
 
 BUYER_ALIASES = {
@@ -473,6 +477,8 @@ DELIVERY_ADDRESSES = {
         ],
     'RADICAL DESIGN LTD': ['RADICAL DESIGN LTD'],
     'Soorty Textiles (BD) Limited': ['Soorty Textiles (BD) Limited', 'Soorty Textiles (BD) Limited Unit-02'],
+    'Southern Clothngs Ltd.': ['Southern Clothngs Ltd.'],
+    'NAZ Bangladesh Ltd.': ['N A Z Bangladesh Ltd'],
 }
 
 # ---------------------------------------------------------------------------

@@ -30,6 +30,8 @@ from madinaple_original_marines_extractor import read_madinaple_style_excel
 from majumder_original_marines_extractor import combine_majumder_booking_files
 from radicaldesign_original_marines_extractor import combine_radicaldesign_booking_files
 from goodearth_joefresh_extractor import combine_goodearth_joefresh_files
+from southern_original_marines_extractor import read_southern_style_excel
+from naz_original_marines_extractor import read_naz_style_excel
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -428,6 +430,18 @@ def _wrap_madinaple(file_stream, filename, item_name_override, manual_ply, buyer
     return read_madinaple_style_excel(
         file_stream, filename,
         item_name_override=item_name_override, manual_ply=manual_ply)
+    
+    
+def _wrap_southern(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_southern_style_excel(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
+    
+    
+def _wrap_naz(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_naz_style_excel(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
 
 
 def _batch_goodearth_joefresh(files, item_name_override='', manual_ply='', customer_name=''):
@@ -483,6 +497,8 @@ REGISTRY = {
     (_norm_key('Columbia Apparels Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
     (_norm_key('Columbia Garments Limited'), _norm_key('Target-USA')): [_wrap_columbia_target_usa],
     (_norm_key('Green Life Knit Composite ltd.'), _norm_key('Abode Sourcing Ltd')): [_wrap_greenlife_abode],
+    (_norm_key('Southern Clothngs Ltd.'), _norm_key('Original Marines')): [_wrap_southern],
+    (_norm_key('NAZ Bangladesh Ltd.'), _norm_key('Original Marines')): [_wrap_naz],
 }
 
 
