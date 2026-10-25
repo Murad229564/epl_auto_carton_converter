@@ -67,7 +67,7 @@ def _num(v):
 
 
 def _fmt_num(v):
-    if v is None:
+    if v is None or (isinstance(v, float) and pd.isna(v)):
         return ''
     try:
         f = float(v)
@@ -201,6 +201,8 @@ def _extract_size_breakdown(df, sheet_name):
         if not triplet or qty_col is None or po_col is None:
             return [], [f"⚠️ শিট '{sheet_name}': SOLID-টাইপ হেডার শনাক্ত হলেও প্রয়োজনীয় কলাম (Length/Width/Height বা Required Carton বা PO NO#) মেলেনি — এই শিট স্কিপ করা হয়েছে।"]
         l_col, w_col, h_col = triplet
+        solid_meas_col = labels.get('measurement')  # L/W/H কলাম ফাঁকা থাকলে ফলব্যাক
+        fallback_rows = 0
     else:  # ASSORT
         set_col = labels.get('set')
         meas_col = labels.get('measurement')
@@ -262,6 +264,12 @@ def _extract_size_breakdown(df, sheet_name):
             length = _fmt_num(df.iat[r, l_col])
             width = _fmt_num(df.iat[r, w_col])
             height = _fmt_num(df.iat[r, h_col])
+            if not (length and width and height) and solid_meas_col is not None:
+                # কিছু রো-তে (যেমন প্রতি ব্লকের শেষ-কাছের সাইজে) Length/Width/Height
+                # কলামগুলো ফাঁকা থাকে, কিন্তু MEASUREMENT টেক্সট কলামে মাপ ঠিকই
+                # থাকে ('58CMx31CMx23CM(0.041M3)') — সেখান থেকে নেওয়া হয়।
+                length, width, height = _parse_two_or_three_nums(_clean(df.iat[r, solid_meas_col]))
+                fallback_rows += 1
             gmt_color = running_color
             gmt_size = style_marker
             style_no = 'N/A'
@@ -299,6 +307,12 @@ def _extract_size_breakdown(df, sheet_name):
             '_sheet': sheet_name,
         })
         r += 1
+
+    if sheet_type == 'SOLID' and fallback_rows:
+        warnings.append(
+            f"ℹ️ শিট '{sheet_name}': {fallback_rows}টা রো-তে Length/Width/Height কলাম ফাঁকা ছিল, "
+            f"তাই MEASUREMENT টেক্সট কলাম থেকে মাপ নেওয়া হয়েছে — একবার চোখ বুলিয়ে নিন।"
+        )
 
     extracted_total = sum(it['qty'] for it in items)
     if total_row_qty is not None and abs(total_row_qty - extracted_total) > 0.001:
