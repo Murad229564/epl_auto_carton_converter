@@ -32,6 +32,7 @@ from radicaldesign_original_marines_extractor import combine_radicaldesign_booki
 from goodearth_joefresh_extractor import combine_goodearth_joefresh_files
 from southern_original_marines_extractor import read_southern_style_excel
 from naz_original_marines_extractor import read_naz_style_excel
+from dewan_rossini_extractor import read_dewan_style_excel
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -447,6 +448,12 @@ def _wrap_naz(file_stream, filename, item_name_override, manual_ply, buyer_name)
 def _batch_goodearth_joefresh(files, item_name_override='', manual_ply='', customer_name=''):
     return combine_goodearth_joefresh_files(
         files, item_name_override=item_name_override, manual_ply=manual_ply)
+    
+    
+def _wrap_dewan(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_dewan_style_excel(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
 
 # ---------------------------------------------------------------------------
 # CUSTOMER + BUYER -> extractor রেজিস্ট্রি। এখানে key হলো
@@ -499,6 +506,7 @@ REGISTRY = {
     (_norm_key('Green Life Knit Composite ltd.'), _norm_key('Abode Sourcing Ltd')): [_wrap_greenlife_abode],
     (_norm_key('Southern Clothngs Ltd.'), _norm_key('Original Marines')): [_wrap_southern],
     (_norm_key('NAZ Bangladesh Ltd.'), _norm_key('Original Marines')): [_wrap_naz],
+    (_norm_key('Dewan Fashion Wears Ltd'), _norm_key('Rossini')): [_wrap_dewan],
 }
 
 

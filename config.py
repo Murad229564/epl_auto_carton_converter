@@ -56,6 +56,8 @@ CUSTOMERS = {
         "Soorty Textiles (BD) Limited",
         "Southern Clothngs Ltd.",
         "NAZ Bangladesh Ltd.",
+        "Dewan Fashion Wears Ltd",
+
     ],
 }
 
@@ -109,6 +111,7 @@ BUYERS = [
     "Target-USA",
     "Abode Sourcing Ltd",
     "Joe Fresh",
+    "Rossini",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -161,6 +164,7 @@ CARTON_VERIFIED_BUYERS = [
     "Abode Sourcing Ltd",
     "Original Marines",
     "Joe Fresh",
+    "Rossini",
 ]
 
 # ---------------------------------------------------------------------------
@@ -245,6 +249,7 @@ CUSTOMER_BUYER_MAP = {
     'Soorty Textiles (BD) Limited': ['C&A BUYING GMBH & CO. KG'],
     'Southern Clothngs Ltd.': ['Original Marines'],
     'NAZ Bangladesh Ltd.': ['Original Marines'],
+    'Dewan Fashion Wears Ltd': ['Rossini'],
 }
 
 BUYER_ALIASES = {
@@ -482,6 +487,7 @@ DELIVERY_ADDRESSES = {
     'Soorty Textiles (BD) Limited': ['Soorty Textiles (BD) Limited', 'Soorty Textiles (BD) Limited Unit-02'],
     'Southern Clothngs Ltd.': ['Southern Clothngs Ltd.'],
     'NAZ Bangladesh Ltd.': ['N A Z Bangladesh Ltd'],
+    'Dewan Fashion Wears Ltd': ['Dewan Fashion Wears Ltd', 'ALEYA APPARELS LIMITED'],
 }
 
 # ---------------------------------------------------------------------------
