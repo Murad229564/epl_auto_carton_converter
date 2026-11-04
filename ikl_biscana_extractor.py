@@ -20,6 +20,15 @@ header সেলগুলো None-ফিল হয়ে থাকে)।
     নতুন করে নেওয়া হয় (পাতা-ভেদে measurement বদলালেও ঠিক থাকবে)
   * কালার-কলাম ফাঁকা + সংখ্যা আছে এমন রো (= TOTAL রো) পেলেই থামে
 
+মাল্টি-আর্টিকেল সাপোর্ট (নতুন): একটা PDF-এ একাধিক পাতা থাকলে, প্রতিটা পাতায়
+আলাদা 'CARTON ORDER SHEET SUMMERY' টাইটেল + আলাদা Article (যেমন পাতা ১ LUANDA,
+পাতা ২ QUITO) থাকতে পারে। তখন প্রতিটা টাইটেল একটা আলাদা সেকশন — প্রতিটা
+সেকশন নিজের PO/Article/Order Code/Size/Measurement দিয়ে আলাদাভাবে পার্স হয়
+(টাইটেল ছাড়া পাতাগুলো আগের সেকশনের continuation), তারপর সব সেকশনের লাইন
+পাতা-ক্রমে জোড়া লাগে। মেইন PO (header_info) = 'PO/Article1/Article2' —
+যেমন 'IKL-BISCANA-86-2026/LUANDA/QUITO'। লাইন-আইটেমের Style প্রতি-সেকশনের
+নিজস্ব Article।
+
 ব্যবসায়িক নিয়ম (ইউজার-কনফার্মড):
 - PO Number (টেমপ্লেটের একদম উপরে, শুধু UI-তে PO ফাঁকা রাখলে auto-fill
   হয়): 'IKL-BISCANA-24-2026' + '/' + Article Name, যেমন
@@ -108,26 +117,23 @@ def _is_title_row(r):
     return 'cartonordersheetsummery' in _norm(r[0] if r else '')
 
 
-def _collect_tables(pdf):
-    """সব পাতা ক্রমানুসারে স্ক্যান করে রিটার্ন করে:
-      main  = (টাইটেল-সহ প্রথম টেবিল, টাইটেল রো-র ইনডেক্স)  — না পেলে None
-      conts = মেইন টেবিলের পরের সব পাতার (টাইটেল ছাড়া) টেবিল, পাতা-ক্রমে।
+def _collect_sections(pdf):
+    """সব পাতা ক্রমানুসারে স্ক্যান করে সেকশনের লিস্ট রিটার্ন করে। প্রতিটা সেকশন =
+    [(টাইটেল-সহ টেবিল, টাইটেল রো ইনডেক্স), [continuation টেবিল...]]।
+    নতুন টাইটেল পেলেই নতুন সেকশন শুরু; টাইটেল ছাড়া টেবিল আগের সেকশনের
+    continuation (কোনো সেকশন শুরু হওয়ার আগের টেবিল উপেক্ষা)।
     """
-    main = None
-    conts = []
+    sections = []
     for page in pdf.pages:
         for table in page.extract_tables():
             if not table:
                 continue
-            if main is None:
-                title_row = _find_row(table, _is_title_row)
-                if title_row is not None:
-                    main = (table, title_row)
-            else:
-                # আরেকটা নতুন টাইটেল থাকলে সেটা আলাদা শিট — continuation না
-                if _find_row(table, _is_title_row) is None:
-                    conts.append(table)
-    return main, conts
+            title_row = _find_row(table, _is_title_row)
+            if title_row is not None:
+                sections.append([(table, title_row), []])
+            elif sections:
+                sections[-1][1].append(table)
+    return sections
 
 
 def _parse_size_cols(size_row_cells):
@@ -147,19 +153,9 @@ def _read_measurements(row, size_cols):
     return m
 
 
-def read_ikl_biscana_pdf(file_stream, filename='', item_name_override='', manual_ply=''):
-    """মূল entry point। রিটার্ন করে (header_info, line_items)। header_info-তে
-    'po_number'/'customer'/'buyer' থাকে (customer/buyer এই ফরম্যাটে PDF থেকে
-    বের করা যায় না, তাই ফাঁকা — UI-এর সিলেকশনই ব্যবহার হবে)। এই ফরম্যাট না
-    হলে (টেবিল/টাইটেল না মিললে) header_info-তে po_number ফাঁকা আর
-    line_items=[] রিটার্ন করে।"""
-    file_stream.seek(0)
-    with pdfplumber.open(file_stream) as pdf:
-        main, conts = _collect_tables(pdf)
-
-    empty = ({'po_number': '', 'customer': '', 'buyer': ''}, [])
-    if main is None:
-        return empty
+def _parse_section(main, conts, item_name_override, manual_ply):
+    """একটা সেকশন থেকে (po_number, article_name, line_items)। সেকশন বৈধ না
+    হলে None।"""
     table, title_row = main
 
     po_row = _first_nonblank_row(table, title_row + 1)
@@ -179,20 +175,13 @@ def read_ikl_biscana_pdf(file_stream, filename='', item_name_override='', manual
 
     size_row = _find_row(table, lambda r: _norm(r[0] if r else '') == 'size')
     if size_row is None:
-        return empty
+        return None
 
     size_cols = _parse_size_cols(table[size_row])
     meas_row = size_row + 1  # COLOUR + measurement রো, সাইজ রো-এর ঠিক পরেই
     measurements = _read_measurements(table[meas_row], size_cols) if meas_row < len(table) else {}
 
-    header_info = {
-        'po_number': f"{po_number}/{article_name}" if po_number and article_name else (po_number or ''),
-        'customer': '',
-        'buyer': '',
-    }
-
-    # সব পাতার ডাটা-রো একটা ফ্ল্যাট লিস্টে: মেইন টেবিলের measurement-রো-র পরের
-    # রো-গুলো, তারপর পরের পাতাগুলোর সব রো
+    # সেকশনের সব পাতার ডাটা-রো একটা ফ্ল্যাট লিস্টে
     flat_rows = list(table[meas_row + 1:])
     for t in conts:
         flat_rows.extend(t)
@@ -224,7 +213,7 @@ def read_ikl_biscana_pdf(file_stream, filename='', item_name_override='', manual
         qty_cells = [_to_num(row[c]) if c < len(row) else None for c, _ in size_cols]
 
         if not first:
-            # কালার-কলাম ফাঁকা + সংখ্যা আছে = TOTAL রো — সব পাতা শেষ, থামুন
+            # কালার-কলাম ফাঁকা + সংখ্যা আছে = TOTAL রো — এই সেকশন শেষ
             if any(q is not None for q in qty_cells):
                 break
             continue
@@ -259,4 +248,58 @@ def read_ikl_biscana_pdf(file_stream, filename='', item_name_override='', manual
                 'delivery_address_pdf': '',
             })
 
-    return header_info, line_items
+    return po_number, article_name, line_items
+
+
+def _build_header_po(sections_meta):
+    """[(po, article), ...] -> 'PO/Article1/Article2'। একই PO-র সব Article একসাথে
+    জোড়া লাগে; ভিন্ন PO থাকলে প্রতিটা PO তার নিজের Article-সহ পরপর বসে।"""
+    order = []
+    arts = {}
+    for po, art in sections_meta:
+        if po not in arts:
+            arts[po] = []
+            order.append(po)
+        if art and art not in arts[po]:
+            arts[po].append(art)
+    parts = []
+    for po in order:
+        if not po:
+            continue
+        parts.append('/'.join([po] + arts[po]))
+    return '/'.join(parts)
+
+
+def read_ikl_biscana_pdf(file_stream, filename='', item_name_override='', manual_ply=''):
+    """মূল entry point। রিটার্ন করে (header_info, line_items)। header_info-তে
+    'po_number'/'customer'/'buyer' থাকে (customer/buyer এই ফরম্যাটে PDF থেকে
+    বের করা যায় না, তাই ফাঁকা — UI-এর সিলেকশনই ব্যবহার হবে)। এই ফরম্যাট না
+    হলে (টেবিল/টাইটেল না মিললে) header_info-তে po_number ফাঁকা আর
+    line_items=[] রিটার্ন করে।"""
+    file_stream.seek(0)
+    with pdfplumber.open(file_stream) as pdf:
+        sections = _collect_sections(pdf)
+
+    empty = ({'po_number': '', 'customer': '', 'buyer': ''}, [])
+    if not sections:
+        return empty
+
+    all_items = []
+    meta = []
+    for main, conts in sections:
+        parsed = _parse_section(main, conts, item_name_override, manual_ply)
+        if parsed is None:
+            continue
+        po_number, article_name, items = parsed
+        meta.append((po_number, article_name))
+        all_items.extend(items)
+
+    if not meta:
+        return empty
+
+    header_info = {
+        'po_number': _build_header_po(meta),
+        'customer': '',
+        'buyer': '',
+    }
+    return header_info, all_items
