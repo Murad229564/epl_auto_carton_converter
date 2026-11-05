@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal, ROUND_HALF_UP
 from openpyxl import load_workbook
 
 # ---------------------------------------------------------------------------
@@ -37,6 +38,13 @@ from openpyxl import load_workbook
 #       Item Name/Ply         -> UI থেকে সিলেক্ট করা ভ্যালু
 #   Hidden রো এবং হাইড/ভেরি-হাইড শীট সম্পূর্ণ বাদ (ইউজার-কনফার্মড, অন্য
 #   এক্সট্র্যাক্টরগুলোর মতোই কনভেনশন)।
+#
+#   রাউন্ডিং (নতুন): কোয়ান্টিটি ঘরে ভগ্নাংশ (যেমন 12.5) থাকলে সেটা Excel-এর
+#   ROUND ফাংশনের নিয়মে (০.৫ হলে উপরে — half-up) রাউন্ড হয়। আগে Python-এর
+#   নিজস্ব round() ব্যবহার হতো, যেটা ব্যাংকার্স রাউন্ডিং করে (0.5->0, 2.5->2,
+#   12.5->12 — জোড় সংখ্যার দিকে) — তাই Excel-এর ROUND/ডিসপ্লের সাথে কিছু
+#   সংখ্যা মিলতো না। পূর্ণসংখ্যা ঘর (যেমন ROUND ফর্মুলার রেজাল্ট) অপরিবর্তিত
+#   থাকে — ফাইলে যা আছে তাই নেওয়া হয়।
 # ---------------------------------------------------------------------------
 
 
@@ -58,6 +66,15 @@ def _is_num(v):
         return True
     except (TypeError, ValueError):
         return False
+
+
+def _excel_round(v):
+    """Excel-এর ROUND(x, 0)-এর মতো: ০.৫ হলে সবসময় উপরে (half away from zero)।
+    Python-এর round() ব্যাংকার্স রাউন্ডিং করে (2.5 -> 2) — সেটা এড়াতেই এই
+    ফাংশন। ১২ দশমিক ঘরে আগে স্ন্যাপ করা হয়, যাতে 2.4999999999999996-এর
+    মতো float-noise Excel-এর মতোই 2.5 ধরা পড়ে।"""
+    d = Decimal(repr(round(float(v), 12)))
+    return int(d.quantize(Decimal('1'), rounding=ROUND_HALF_UP))
 
 
 def _fmt_num(v):
@@ -250,7 +267,7 @@ def read_fame_defacto_style_excel(file_stream, filename='', item_name_override='
                 'width': width,
                 'height': height,
                 'ply': ply_value,
-                'qty': round(float(qty_val)),
+                'qty': _excel_round(qty_val),
                 'pack_type': _clean(ws.cell(row=r, column=pack_col).value),
                 'reference': reference_val,
                 'color': '',
