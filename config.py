@@ -57,6 +57,7 @@ CUSTOMERS = {
         "Southern Clothngs Ltd.",
         "NAZ Bangladesh Ltd.",
         "Dewan Fashion Wears Ltd",
+        "Bettex Industries Ltd",
 
     ],
 }
@@ -112,6 +113,7 @@ BUYERS = [
     "Abode Sourcing Ltd",
     "Joe Fresh",
     "Rossini",
+    "C&A BUYING GMBH & CO. KG",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -165,6 +167,7 @@ CARTON_VERIFIED_BUYERS = [
     "Original Marines",
     "Joe Fresh",
     "Rossini",
+    "C&A BUYING GMBH & CO. KG",
 ]
 
 # ---------------------------------------------------------------------------
@@ -250,6 +253,7 @@ CUSTOMER_BUYER_MAP = {
     'Southern Clothngs Ltd.': ['Original Marines'],
     'NAZ Bangladesh Ltd.': ['Original Marines'],
     'Dewan Fashion Wears Ltd': ['Rossini'],
+    'Bettex Industries Ltd': ['C&A BUYING GMBH & CO. KG'],
 }
 
 BUYER_ALIASES = {
@@ -488,6 +492,7 @@ DELIVERY_ADDRESSES = {
     'Southern Clothngs Ltd.': ['Southern Clothngs Ltd.'],
     'NAZ Bangladesh Ltd.': ['N A Z Bangladesh Ltd'],
     'Dewan Fashion Wears Ltd': ['Dewan Fashion Wears Ltd', 'ALEYA APPARELS LIMITED'],
+    'Bettex Industries Ltd': ['Bettex Industries Ltd'],
 }
 
 # ---------------------------------------------------------------------------

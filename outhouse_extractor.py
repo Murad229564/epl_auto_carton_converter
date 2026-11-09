@@ -33,6 +33,7 @@ from goodearth_joefresh_extractor import combine_goodearth_joefresh_files
 from southern_original_marines_extractor import read_southern_style_excel
 from naz_original_marines_extractor import read_naz_style_excel
 from dewan_rossini_extractor import read_dewan_style_excel
+from bettex_ca_extractor import read_bettex_style_excel
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -443,6 +444,12 @@ def _wrap_naz(file_stream, filename, item_name_override, manual_ply, buyer_name)
     return read_naz_style_excel(
         file_stream, filename,
         item_name_override=item_name_override, manual_ply=manual_ply)
+    
+    
+def _wrap_bettex(file_stream, filename, item_name_override, manual_ply, buyer_name):
+    return read_bettex_style_excel(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
 
 
 def _batch_goodearth_joefresh(files, item_name_override='', manual_ply='', customer_name=''):
@@ -507,6 +514,7 @@ REGISTRY = {
     (_norm_key('Southern Clothngs Ltd.'), _norm_key('Original Marines')): [_wrap_southern],
     (_norm_key('NAZ Bangladesh Ltd.'), _norm_key('Original Marines')): [_wrap_naz],
     (_norm_key('Dewan Fashion Wears Ltd'), _norm_key('Rossini')): [_wrap_dewan],
+    (_norm_key('Bettex Industries Ltd'), _norm_key('C&A BUYING GMBH & CO. KG')): [_wrap_bettex],
 }
 
 
