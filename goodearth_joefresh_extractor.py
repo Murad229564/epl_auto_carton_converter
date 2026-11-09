@@ -13,7 +13,8 @@ from openpyxl import load_workbook
 #       'Style -S7WP080425'          -> Gmt. Style No
 #       'Po No: 4885286927 32'       -> Gmt. PO (কোলনের পরের পুরো লেখা)
 #       'Color name' (C1) / CODE/COLOR -> Reference/SKU Number
-#       'UPC CODE : 2088...'         -> Pack Type
+#       'NG Item#  : 21773015'       -> Pack Type (আগে এখানে UPC CODE
+#                                       বসতো; এখন NG Item# নম্বর)
 #       'Carton measuremnet:- L-15'' X W-14" X H-5" inch' -> Length/Width/
 #                                       Height, একক ইঞ্চি (Measurement Unit
 #                                       = 'Inch', কোনো কনভার্সন না)
@@ -127,7 +128,7 @@ def _find_blocks(ws, max_rows):
 def _read_block(ws, start, end, sheet_name, filename, item_name, ply_value):
     """একটা ব্লক থেকে (line_item_or_None, warnings)।"""
     warnings = []
-    style = po = color = upc = ''
+    style = po = color = ng_item = ''
     meas = None
     qty_val = None
     color_fallback = ''
@@ -156,8 +157,11 @@ def _read_block(ws, start, end, sheet_name, filename, item_name, ply_value):
                 color_fallback = _value_after_colon(raw)
             elif n.startswith('ctnmeas') and meas_fallback is None:
                 meas_fallback = _parse_measurement(_value_after_colon(raw))
-            elif c == 1 and n.startswith('upccode') and not upc:
-                upc = _value_after_colon(raw)
+            elif c == 1 and n.startswith('ngitem') and not ng_item:
+                # 'NG Item#   :  21773015' -> '21773015' (কোলন না থাকলে লেবেল
+                # বাদ দিয়ে বাকি অংশ)
+                ng_item = _value_after_colon(raw) or _clean(
+                    re.sub(r'^\s*ng\s*item\s*#?\s*', '', raw, flags=re.I))
             elif c == 1 and n.startswith('needcart') and 'qty' in n and qty_val is None:
                 qty_val = _right_value(ws, r, c, numeric=True)
 
@@ -176,7 +180,7 @@ def _read_block(ws, start, end, sheet_name, filename, item_name, ply_value):
     if unit is None:
         unit = 'Inch'
         warnings.append(f"⚠️ {label}: measurement-এর একক (inch/cm) লেখা নেই, Inch ধরা হয়েছে — চেক করুন।")
-    for name, val in (('Style', style), ('PO', po), ('Color', color), ('UPC Code', upc)):
+    for name, val in (('Style', style), ('PO', po), ('Color', color), ('NG Item#', ng_item)):
         if not val:
             warnings.append(f"⚠️ {label}: {name} পাওয়া যায়নি।")
 
@@ -188,7 +192,7 @@ def _read_block(ws, start, end, sheet_name, filename, item_name, ply_value):
         'length': l, 'width': w, 'height': h,
         'ply': ply_value,
         'qty': round(float(qty_val)),
-        'pack_type': upc or 'N/A',
+        'pack_type': ng_item or 'N/A',
         'reference': color or 'N/A',
         'color': '', 'size': '',
         'delivery_date': '',
