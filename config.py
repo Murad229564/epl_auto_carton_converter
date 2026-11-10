@@ -226,7 +226,7 @@ CUSTOMER_BUYER_MAP = {
     'Barnali Textile and Printing Industries (Pvt) Ltd.': ['Hultafors Group AB'],
     'Barnali Collections Limited': ['Hultafors Group AB'],
     'Modele de Capital Ind Ltd.': ['Primark'],
-    'Norp Knit Industries Ltd.': ['Macy', "Kohl`s"],
+    'Norp Knit Industries Ltd.': ['Macy', "Kohl`s", 'Primark'],
     'PRUDENT FASHION LTD.': ["Kohl`s", 'Macy'],
     'Simba Fashions Limited': ['Macy'],
     'Kenpark Bangladesh Apparel (Pvt.) Limited': ['Ralph Lauren'],

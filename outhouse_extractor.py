@@ -35,6 +35,7 @@ from naz_original_marines_extractor import read_naz_style_excel
 from dewan_rossini_extractor import read_dewan_style_excel
 from bettex_ca_extractor import read_bettex_style_excel
 from fortis_nakd_extractor import read_fortis_nakd_style_excel
+from norp_primark_extractor import combine_norp_primark_booking_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -468,6 +469,12 @@ def _wrap_fortis(file_stream, filename, item_name_override, manual_ply, buyer_na
     return read_fortis_nakd_style_excel(
         file_stream, filename,
         item_name_override=item_name_override, manual_ply=manual_ply)
+    
+    
+def _batch_norp_primark(files, item_name_override='', manual_ply='', customer_name=''):
+    return combine_norp_primark_booking_files(
+        files, item_name_override=item_name_override, manual_ply=manual_ply)
+    
 
 # ---------------------------------------------------------------------------
 # CUSTOMER + BUYER -> extractor রেজিস্ট্রি। এখানে key হলো
@@ -678,6 +685,7 @@ BATCH_REGISTRY = {
     (_norm_key('Majumder Garments Ltd.'), _norm_key("Original Marines")): _batch_majumder,
     (_norm_key('RADICAL DESIGN LTD'), _norm_key('Original Marines')): _batch_radicaldesign,
     (_norm_key('GoodEarth Apparels ltd.'), _norm_key('Joe Fresh')): _batch_goodearth_joefresh,
+    (_norm_key('Norp Knit Industries Ltd.'), _norm_key('Primark')): _batch_norp_primark,
 }
 
 
