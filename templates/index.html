@@ -378,7 +378,7 @@
           </div>
           <div id="manualDateWrap" style="display:none; margin-top:6px;">
             <input type="date" id="delivery_date" name="delivery_date">
-            <div class="field-err" id="date_err">আজ থেকে ন্যূনতম ৪ দিন পরে হতে হবে</div>
+            <div class="field-err" id="date_err">আজকের তারিখ বা তার পরের তারিখ দিতে হবে (অতীতের তারিখ চলবে না)</div>
           </div>
           <div id="autoDateHint" class="hint">আজ+৭ দিন, শুক্রবার/সরকারি ছুটি বাদে</div>
         </div>
@@ -644,9 +644,14 @@ const addressCombo = setupCombo({
 const manualDateWrap = document.getElementById('manualDateWrap');
 const autoDateHint = document.getElementById('autoDateHint');
 const deliveryDateInput = document.getElementById('delivery_date');
-const minAllowedDate = new Date();
-minAllowedDate.setDate(minAllowedDate.getDate() + 4);
-const minDateStr = minAllowedDate.toISOString().split('T')[0];
+// আজকের তারিখ (ব্রাউজারের লোকাল সময় ধরে, বাংলাদেশ) — আজ বা তার পরের যেকোনো দিন চলবে
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+const minDateStr = localDateStr(new Date());
 deliveryDateInput.min = minDateStr;
 
 document.querySelectorAll('input[name="delivery_mode"]').forEach(radio => {
