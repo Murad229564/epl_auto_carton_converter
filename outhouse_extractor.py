@@ -36,6 +36,7 @@ from dewan_rossini_extractor import read_dewan_style_excel
 from bettex_ca_extractor import read_bettex_style_excel
 from fortis_nakd_extractor import read_fortis_nakd_style_excel
 from norp_primark_extractor import combine_norp_primark_booking_files
+from bangladesh_textile_aeon_extractor import combine_bangladesh_textile_aeon_booking_files
 
 # ---------------------------------------------------------------------------
 # আউট হাউজ Carton বুকিং এক্সেল (.xls/.xlsx) থেকে ডাটা বের করার মডিউল।
@@ -669,6 +670,10 @@ def _batch_majumder(files, item_name_override='', manual_ply='', customer_name='
     return combine_majumder_booking_files(files, item_name_override=item_name_override, manual_ply=manual_ply)
 
 
+def _batch_bangladesh_textile_aeon(files, item_name_override='', manual_ply='', customer_name=''):
+    return combine_bangladesh_textile_aeon_booking_files(files, item_name_override=item_name_override, manual_ply=manual_ply)
+
+
 BATCH_REGISTRY = {
     (_norm_key('Amigo Bangladesh Ltd'), _norm_key('Uniqlo')): _batch_amigo,
     (_norm_key('Sinha Knit and Denims Limited'), _norm_key('Tata Trent')): _batch_sinha,
@@ -686,6 +691,7 @@ BATCH_REGISTRY = {
     (_norm_key('RADICAL DESIGN LTD'), _norm_key('Original Marines')): _batch_radicaldesign,
     (_norm_key('GoodEarth Apparels ltd.'), _norm_key('Joe Fresh')): _batch_goodearth_joefresh,
     (_norm_key('Norp Knit Industries Ltd.'), _norm_key('Primark')): _batch_norp_primark,
+    (_norm_key('Bangladesh Textile & Chemical Fiber Industry Ltd.'), _norm_key('Aeon')): _batch_bangladesh_textile_aeon,
 }
 
 

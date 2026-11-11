@@ -59,6 +59,7 @@ CUSTOMERS = {
         "Dewan Fashion Wears Ltd",
         "Bettex Industries Ltd",
         "Fortis Garments Limited",
+        "Bangladesh Textile & Chemical Fiber Industry Ltd.",
 
     ],
 }
@@ -116,6 +117,7 @@ BUYERS = [
     "Rossini",
     "C&A BUYING GMBH & CO. KG",
     "NA-KD",
+    "Aeon",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -171,6 +173,7 @@ CARTON_VERIFIED_BUYERS = [
     "Rossini",
     "C&A BUYING GMBH & CO. KG",
     "NA-KD",
+    "Aeon",
 ]
 
 # ---------------------------------------------------------------------------
@@ -258,6 +261,7 @@ CUSTOMER_BUYER_MAP = {
     'Dewan Fashion Wears Ltd': ['Rossini'],
     'Bettex Industries Ltd': ['C&A BUYING GMBH & CO. KG'],
     'Fortis Garments Limited': ['NA-KD'],
+    'Bangladesh Textile & Chemical Fiber Industry Ltd.': ['Aeon'],
 }
 
 BUYER_ALIASES = {
@@ -498,6 +502,7 @@ DELIVERY_ADDRESSES = {
     'Dewan Fashion Wears Ltd': ['Dewan Fashion Wears Ltd', 'ALEYA APPARELS LIMITED'],
     'Bettex Industries Ltd': ['Bettex Industries Ltd'],
     'Fortis Garments Limited': ['Fortis Garments Limited'],
+    'Bangladesh Textile & Chemical Fiber Industry Ltd.': ['Bangladesh Textile & Chemical Fiber Industry Ltd.'],
 }
 
 # ---------------------------------------------------------------------------
