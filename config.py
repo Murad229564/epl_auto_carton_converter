@@ -118,6 +118,7 @@ BUYERS = [
     "C&A BUYING GMBH & CO. KG",
     "NA-KD",
     "Aeon",
+    "Chicos",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -174,6 +175,7 @@ CARTON_VERIFIED_BUYERS = [
     "C&A BUYING GMBH & CO. KG",
     "NA-KD",
     "Aeon",
+    "Chicos",
 ]
 
 # ---------------------------------------------------------------------------
@@ -233,7 +235,7 @@ CUSTOMER_BUYER_MAP = {
     'PRUDENT FASHION LTD.': ["Kohl`s", 'Macy'],
     'Simba Fashions Limited': ['Macy'],
     'Kenpark Bangladesh Apparel (Pvt.) Limited': ['Ralph Lauren'],
-    'Kenpark Bangladesh (Pvt.) Limited': ['Ralph Lauren'],
+    'Kenpark Bangladesh (Pvt.) Limited': ['Ralph Lauren','Chicos'],
     'Regency Three Limited': ['Ralph Lauren'],
     'Ventura (HK) Trading Limited': ['Kate Spade', 'Michael Kors', 'Coach', 'Le Sportsac', 'Vera Bradley'],
     'Knit Concept LTD.': ['SMART BLANKS BD'],
