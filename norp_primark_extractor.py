@@ -7,7 +7,13 @@ import pandas as pd
 # ফাইলের নাম: norp_primark_extractor.py  (customer_buyer নামকরণ)
 # ফাংশন: combine_norp_primark_booking_files (batch), read_norp_primark_style_excel (এক ফাইল)
 #
-# টেবিল (হেডার: STYLE / For Sizes / Carton Meas. / Carton Qty / Divider Meas.
+# দুই ধরনের ফরম্যাট সাপোর্ট করে:
+#   ফরম্যাট-১: টেবিলে STYLE কলাম আছে (মার্জড সেলে ব্লক-ওয়াইজ, একাধিক Style হতে পারে)।
+#   ফরম্যাট-২: টেবিলে STYLE কলাম নেই — উপরে আলাদা 'Style: CRINKLETEE' লেবেল
+#              (লেবেলের পাশের ঘরে/একই ঘরে কোলনের পরে), পুরো ফাইলে একটাই Style।
+#   Style কলাম থাকলে কলামের মান; কলামের ঘর ফাঁকা বা কলামই না থাকলে হেডারের Style।
+#
+# টেবিল (হেডার: STYLE (ঐচ্ছিক) / For Sizes / Carton Meas. / Carton Qty / Divider Meas.
 # / Divider Qty / Garments Qty / Remark):
 #   STYLE         -> Gmt. Style No  (এবং টেমপ্লেটের উপরের PO ফিল্ড — _header_po)
 #   For Sizes     -> Reference/SKU Number
@@ -82,7 +88,7 @@ def _load_rows(file_stream, filename):
 def _find_header(rows, max_scan=40):
     for i, row in enumerate(rows[:max_scan]):
         normed = [_norm(c) for c in row]
-        if ('style' in normed and 'cartonmeas' in normed and 'cartonqty' in normed):
+        if ('cartonmeas' in normed and 'cartonqty' in normed):
             heads = {}
             for ci, n in enumerate(normed):
                 if n and n not in heads:
@@ -103,6 +109,26 @@ def _is_elastic(remark):
     return 'elastic' in r.lower()
 
 
+def _extract_header_style(rows, header_idx):
+    """টেবিলের উপরের অংশ থেকে Style: 'Style:' লেবেলের পাশের ঘর, অথবা একই
+    ঘরে 'Style: CRINKLETEE' / 'Style#123'।"""
+    inline = re.compile(r'^\s*style\s*[:#]\s*(\S.*)$', re.I)
+    for row in rows[:header_idx]:
+        for ci, c in enumerate(row):
+            text = _clean(c)
+            if not text:
+                continue
+            m = inline.match(text)
+            if m:
+                return m.group(1).strip()
+            if _norm(text) == 'style':
+                for c2 in row[ci + 1:]:
+                    v = _clean(c2)
+                    if v:
+                        return v
+    return ''
+
+
 def read_norp_primark_style_excel(file_stream, filename='', item_name_override='Master Carton', manual_ply=''):
     """এক ফাইল -> (cartons, dividers, warnings)। ফরম্যাট না মিললে ValueError।"""
     rows = _load_rows(file_stream, filename)
@@ -110,7 +136,7 @@ def read_norp_primark_style_excel(file_stream, filename='', item_name_override='
     if header_idx is None:
         raise ValueError("'STYLE / Carton Meas. / Carton Qty' হেডিং-সহ Primark টেবিল পাওয়া যায়নি")
 
-    c_style = heads['style']
+    c_style = heads.get('style')   # ফরম্যাট-২-এ কলাম নেই
     c_sizes = heads.get('forsizes')
     c_cm = heads['cartonmeas']
     c_cq = heads['cartonqty']
@@ -140,8 +166,12 @@ def read_norp_primark_style_excel(file_stream, filename='', item_name_override='
             return ''
         return row[ci]
 
+    header_style = _extract_header_style(rows, header_idx)
+    if c_style is None and not header_style:
+        warnings.append(f"{filename}: Style পাওয়া যায়নি (না কলামে, না উপরের 'Style:' লেবেলে) — যাচাই করুন")
+
     cartons, dividers = [], []
-    last_style = ''
+    last_style = header_style
     last_remark = ''
     total_row_qty = None
     for row in rows[header_idx + 1:]:
