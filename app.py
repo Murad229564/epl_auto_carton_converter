@@ -20,15 +20,21 @@ from printing_press_config import (
     PRINTING_PRESS_BUYERS, PRINTING_PRESS_BUYER_ALIASES, PRINTING_PRESS_VERIFIED_BUYERS,
     PRINTING_PRESS_ITEM_NAME_ALIASES,
 )
+from label_extractor import process_pdf_label, get_unique_delivery_info as get_unique_delivery_info_label
+from label_builder import build_label_excel, validate_label_line_items
+from label_config import LABEL_BUYERS, LABEL_BUYER_ALIASES, LABEL_VERIFIED_BUYERS
+
 from validators import (
     validate_customer, validate_buyer, validate_buyer_in_list, validate_po_number,
     validate_delivery_address, validate_matches_pdf, values_match_ci,
 )
 from date_logic import get_default_delivery_date, validate_manual_delivery_date, format_delivery_date
 from config import CUSTOMERS, BUYERS, DELIVERY_ADDRESSES, BUYER_ALIASES, CUSTOMER_ALIASES, CARTON_VERIFIED_BUYERS, CUSTOMER_BUYER_MAP, resolve_alias
+from label_routes import label_bp
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20MB
+app.register_blueprint(label_bp)
 
 
 def _norm_key(s):
@@ -144,6 +150,7 @@ def printing_press_index():
         buyers=PRINTING_PRESS_BUYERS,
         delivery_addresses=DELIVERY_ADDRESSES,
     )
+    
 
 
 @app.route('/extract_header', methods=['POST'])
@@ -1437,6 +1444,7 @@ def autocarton_process_kenpark_pdf():
     response.headers['X-Warning-Count'] = str(len(warnings))
     response.headers['X-File-Count'] = str(len(files))
     return response
+
 
 
 if __name__ == '__main__':
