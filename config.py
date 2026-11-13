@@ -119,6 +119,7 @@ BUYERS = [
     "NA-KD",
     "Aeon",
     "Chicos",
+    "OBEY",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -217,6 +218,7 @@ _IN_HOUSE_BUYERS = [
     "Bonds",
     "Pointer",
     "VISTULA",
+    "OBEY",
 ]
 
 CUSTOMER_BUYER_MAP = {
