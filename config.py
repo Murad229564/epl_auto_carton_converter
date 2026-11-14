@@ -60,6 +60,8 @@ CUSTOMERS = {
         "Bettex Industries Ltd",
         "Fortis Garments Limited",
         "Bangladesh Textile & Chemical Fiber Industry Ltd.",
+        "MIDAS SAFETY BANGLADESH LTD.",
+        "Comfit Composite Knit Limited",
 
     ],
 }
@@ -120,6 +122,7 @@ BUYERS = [
     "Aeon",
     "Chicos",
     "OBEY",
+    "KCP",
 ]
 # এই লিস্টটা এখন থেকে সব মডিউল (Carton, Thermal, ভবিষ্যতের যেকোনো মডিউল)
 # শেয়ার করবে — নতুন কোনো buyer যোগ করলে এখানে একবার যোগ করলেই সব মডিউলের
@@ -177,6 +180,7 @@ CARTON_VERIFIED_BUYERS = [
     "NA-KD",
     "Aeon",
     "Chicos",
+    "KCP",
 ]
 
 # ---------------------------------------------------------------------------
@@ -266,6 +270,8 @@ CUSTOMER_BUYER_MAP = {
     'Bettex Industries Ltd': ['C&A BUYING GMBH & CO. KG'],
     'Fortis Garments Limited': ['NA-KD'],
     'Bangladesh Textile & Chemical Fiber Industry Ltd.': ['Aeon'],
+    'MIDAS SAFETY BANGLADESH LTD.': ['KCP'],
+    'Comfit Composite Knit Limited': ['Original Marines'],
 }
 
 BUYER_ALIASES = {
@@ -507,6 +513,8 @@ DELIVERY_ADDRESSES = {
     'Bettex Industries Ltd': ['Bettex Industries Ltd'],
     'Fortis Garments Limited': ['Fortis Garments Limited'],
     'Bangladesh Textile & Chemical Fiber Industry Ltd.': ['Bangladesh Textile & Chemical Fiber Industry Ltd.'],
+    'MIDAS SAFETY BANGLADESH LTD.': ['MIDAS SAFETY BANGLADESH LTD.'],
+    'Comfit Composite Knit Limited': ['Comfit Composite Knit Limited', 'Comfit Composite Knit Ltd. (Unit-3)', 'Comfit Composite Knit Limited, Unit-02', 'Urmi group'],
 }
 
 # ---------------------------------------------------------------------------

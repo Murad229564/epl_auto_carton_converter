@@ -11,6 +11,7 @@ from outhouse_extractor import combine_booking_excels, derive_po_header
 from outhouse_pdf_extractor import process_trims_booking_pdf
 from ikl_biscana_extractor import read_ikl_biscana_pdf
 from kenpark_extractor import read_kenpark_pdf
+from midas_safety_kcp_pdf_extractor import read_midas_kcp_pdf
 from thermal_extractor import process_pdf_thermal, get_unique_delivery_info_thermal
 from thermal_builder import build_thermal_excel, validate_thermal_line_items
 from thermal_config import THERMAL_BUYERS, THERMAL_BUYER_ALIASES, THERMAL_VERIFIED_BUYERS
@@ -70,30 +71,66 @@ def _wrap_ikl_pdf(file_stream, filename, customer_list, buyer_list, item_name_ov
     return read_ikl_biscana_pdf(
         file_stream, filename,
         item_name_override=item_name_override, manual_ply=manual_ply)
+    
+    
+def _wrap_midas_kcp_pdf(file_stream, filename, customer_list, buyer_list, item_name_override, manual_ply):
+    return read_midas_kcp_pdf(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply,
+        customer_list=customer_list)
 
 
-OUTHOUSE_PDF_REGISTRY = {
-    (_norm_key('Innovative Knitex Ltd.'), _norm_key('Biscana')): _wrap_ikl_pdf,
-}
+# app.py-তে এই ব্লকটা বসবে — পুরনো OUTHOUSE_PDF_REGISTRY থেকে _extract_outhouse_pdf_header_auto পর্যন্ত অংশের বদলে
+# (import io, re এবং _norm_key app.py-তে আগে থেকেই আছে, ওগুলো আবার বসানোর দরকার নেই)
+
+def _norm_key(s):
+    return re.sub(r'[^a-z0-9]', '', str(s or '').lower())
+
+def _wrap_barnali_pdf(file_stream, filename, customer_list, buyer_list, item_name_override, manual_ply):
+    return process_trims_booking_pdf(file_stream, customer_list, buyer_list)
+
+
+def _wrap_ikl_pdf(file_stream, filename, customer_list, buyer_list, item_name_override, manual_ply):
+    return read_ikl_biscana_pdf(
+        file_stream, filename,
+        item_name_override=item_name_override, manual_ply=manual_ply)
+
+
+OUTHOUSE_PDF_REGISTRY = {}   # (normalize(customer), normalize(buyer)) -> handler
+OUTHOUSE_PDF_NAMES = {}      # একই key -> (ক্যানোনিকাল customer, ক্যানোনিকাল buyer)
+
+
+def _register_outhouse_pdf(customer, buyer, handler):
+    """নতুন PDF এক্সট্রাক্টর রেজিস্টার করার একমাত্র জায়গা। customer/buyer নাম
+    config.py-র সাথে হুবহু যেভাবে লেখা আছে সেভাবে দিন — PDF আপলোডের সাথে
+    সাথে (ফরম্যাট চিনতে পারলে) এই নামগুলোই অটো-ফিল হবে।"""
+    key = (_norm_key(customer), _norm_key(buyer))
+    OUTHOUSE_PDF_REGISTRY[key] = handler
+    OUTHOUSE_PDF_NAMES[key] = (customer, buyer)
+
+
+def _std(fn):
+    """নতুন ধাঁচের এক্সট্রাক্টর ফাংশন: fn(file_stream, filename, item_name_override=,
+    manual_ply=, customer_list=) -> (header_info, items) — এটাকে রেজিস্ট্রির
+    স্ট্যান্ডার্ড হ্যান্ডলার-আকারে মুড়ে দেয়, আলাদা wrapper লিখতে হয় না।"""
+    def _handler(file_stream, filename, customer_list, buyer_list, item_name_override, manual_ply):
+        return fn(file_stream, filename, item_name_override=item_name_override,
+                  manual_ply=manual_ply, customer_list=customer_list)
+    return _handler
+
+
+_register_outhouse_pdf('Innovative Knitex Ltd.', 'Biscana', _wrap_ikl_pdf)
+_register_outhouse_pdf('MIDAS SAFETY BANGLADESH LTD.', 'KCP', _std(read_midas_kcp_pdf))
+# ভবিষ্যতের নতুন PDF এক্সট্রাক্টর — শুধু এক লাইন:
+# _register_outhouse_pdf('Customer Name', 'Buyer Name', _std(read_xxx_pdf))
 
 
 def _get_outhouse_pdf_handler(customer_name, buyer_name):
-    """customer_name/buyer_name জানা থাকলে (অর্থাৎ ফর্ম সাবমিটের সময়,
-    /autocarton/process_outhouse_trims_booking_pdf-এ) নির্ভরযোগ্যভাবে
-    সঠিক extractor বেছে নেয়। রেজিস্ট্রিতে না থাকলে ডিফল্ট Barnali/Modele
-    হ্যান্ডলার।"""
     return OUTHOUSE_PDF_REGISTRY.get(
         (_norm_key(customer_name), _norm_key(buyer_name)), _wrap_barnali_pdf)
 
 
 def _extract_outhouse_pdf_header_auto(file_stream, filename):
-    """হেডার-অটোফিল ধাপে (PDF আপলোডের সাথে সাথেই, ফর্ম সাবমিটের আগে)
-    customer/buyer এখনো জানা নেই — তাই ফরম্যাট নিজে থেকেই বুঝে নিতে হয়।
-    প্রথমে ডিফল্ট (Barnali/Modele) ফরম্যাট ট্রাই করা হয়; সেটা যদি লাইন-
-    আইটেম/PO না দেয় (ফরম্যাট না মেলার লক্ষণ), তাহলে রেজিস্ট্রিতে থাকা
-    বাকি ফরম্যাটগুলো (যেমন IKL/Biscana) একে একে ট্রাই করা হয়। প্রতিটা
-    extractor নিজের ফরম্যাট না মিললে নিরাপদে খালি রেজাল্ট রিটার্ন করে
-    (এক্সেপশন ছোড়ে না), তাই এই চেইন নিরাপদ।"""
     try:
         file_stream.seek(0)
         header_info, items = process_trims_booking_pdf(file_stream, CUSTOMERS.get('OUT-HOUSE', []), BUYERS)
@@ -102,12 +139,19 @@ def _extract_outhouse_pdf_header_auto(file_stream, filename):
     except Exception:
         pass
 
-    for handler in OUTHOUSE_PDF_REGISTRY.values():
+    for key, handler in OUTHOUSE_PDF_REGISTRY.items():
         try:
             file_stream.seek(0)
             header_info, items = handler(
                 file_stream, filename, CUSTOMERS.get('OUT-HOUSE', []), BUYERS, '', '')
             if items or header_info.get('po_number'):
+                # ফরম্যাট চেনা গেছে — PDF থেকে customer/buyer না এলে রেজিস্ট্রির
+                # ক্যানোনিকাল নামই অটো-ফিল হবে (Innovative/Biscana, Midas/KCP ...)
+                reg_customer, reg_buyer = OUTHOUSE_PDF_NAMES.get(key, ('', ''))
+                if not header_info.get('customer'):
+                    header_info['customer'] = reg_customer
+                if not header_info.get('buyer'):
+                    header_info['buyer'] = reg_buyer
                 return header_info, items
         except Exception:
             continue
@@ -1134,6 +1178,7 @@ def autocarton_process_outhouse_trims_booking_pdf():
                 with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
                     for filename, hdr, items, raw_bytes in per_file_results:
                         group_warnings = validate_line_items(items)
+                        group_warnings.extend(hdr.get('warnings', []))
                         if verified_warning:
                             group_warnings.append(verified_warning)
                         total_warn_count += len(group_warnings)
@@ -1184,6 +1229,8 @@ def autocarton_process_outhouse_trims_booking_pdf():
         full_dump.append(build_pdf_full_dump(io.BytesIO(raw_bytes), filename))
 
     warnings = validate_line_items(line_items)
+    for _fn, _hdr, _it, _rb in per_file_results:
+        warnings.extend(_hdr.get('warnings', []))
     for e in file_errors:
         warnings.append(f"⚠️ এই ফাইলটা স্কিপ হয়েছে: {e}")
     if verified_warning:
